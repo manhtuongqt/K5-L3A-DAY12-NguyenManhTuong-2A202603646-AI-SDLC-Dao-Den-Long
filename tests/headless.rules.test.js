@@ -1,81 +1,75 @@
-// Test luật chơi (black-box qua CLI headless). Mọi con số lấy từ game.contract.json (T),
-// hằng số thế giới lấy từ docs/notes/phase-1-design.md mục 2.
+// Test luật chơi Đêm 1 (black-box qua CLI headless), cập nhật cho luật v1.1.
+// Mọi con số lấy từ game.contract.json (T); bản đồ lấy từ docs/notes/phase-2-ticket.md.
+// Test v1.0 bị luật mới thay thế được sửa/xóa kèm lý do trong docs/notes/test-changes-phase-2.md.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  T, S, ISLAND_RADIUS, SHADE_Y, lanternPos, distXZ, ticksOf, perTick,
-  runOk, scen, frames, snapAt, eventsNamed, assertClose, assertPosClose, assertScoreConsistent,
+  T, S, SHADE_Y, lanternPos, distXZ, ticksOf, perTick,
+  runOk, scen, frames, snapAt, eventsNamed, assertClose, assertPosClose,
+  assertRunDistance, assertScoreConsistent,
 } from './helpers.js';
 
-const STEP = perTick(T.player_speed);
 const SHADE_STEP = perTick(T.shade_speed);
 const POS_TOL = 0.002; // làm tròn 3 chữ số + sai số cộng dồn nhỏ
 const gameOver = (res) => eventsNamed(res, 'game_over');
+const shade = (pos, extra = {}) => ({ pos, state: 'chase', ...extra }); // v1.1: mặc định là wander, nên đặt chase tường minh
 
 // ---------------------------------------------------------------------------
-// R2: di chuyển
+// R2: di chuyển (v1.1: có gia tốc nên quãng đường là khoảng, không còn là số tròn)
 
 function walk({ move, yaw = 0, ticks = 60, pos = [0, 0, 0] }) {
-  const res = runOk({
+  return runOk({
     ticks, snapshotEvery: 1,
     scenario: scen({ player: { pos } }),
     inputs: frames({ tick: 0, move, cam_yaw_deg: yaw }),
   });
-  return res;
 }
 
-test('[R2] move [0,1], yaw 0, 60 tick -> z = player_speed (đi theo +Z)', () => {
+test('[R2] move [0,1], yaw 0, 60 tick -> đi theo +Z, quãng đường ~ player_speed (có gia tốc)', () => {
   const p = snapAt(walk({ move: [0, 1] }), 60).player.pos;
-  assertPosClose(p, [0, 0, T.player_speed], POS_TOL);
+  assertClose(p[0], 0, POS_TOL);
+  assertRunDistance(p[2], 60);
 });
 
 test('[R2] move [1,0], yaw 0 -> đi theo +X', () => {
-  assertPosClose(snapAt(walk({ move: [1, 0] }), 60).player.pos, [T.player_speed, 0, 0], POS_TOL);
+  const p = snapAt(walk({ move: [1, 0] }), 60).player.pos;
+  assertClose(p[2], 0, POS_TOL);
+  assertRunDistance(p[0], 60);
 });
 
 test('[R2] move [0,1], yaw 90 -> đi theo +X', () => {
-  assertPosClose(snapAt(walk({ move: [0, 1], yaw: 90 }), 60).player.pos, [T.player_speed, 0, 0], POS_TOL);
+  const p = snapAt(walk({ move: [0, 1], yaw: 90 }), 60).player.pos;
+  assertClose(p[2], 0, POS_TOL);
+  assertRunDistance(p[0], 60);
 });
 
 test('[R2] move [1,0], yaw 90 -> đi theo -Z (x\' = x cos + z sin, z\' = -x sin + z cos)', () => {
-  assertPosClose(snapAt(walk({ move: [1, 0], yaw: 90 }), 60).player.pos, [0, 0, -T.player_speed], POS_TOL);
+  const p = snapAt(walk({ move: [1, 0], yaw: 90 }), 60).player.pos;
+  assertClose(p[0], 0, POS_TOL);
+  assertRunDistance(-p[2], 60);
 });
 
 test('[R2] move [0,1], yaw 180 -> đi theo -Z', () => {
-  assertPosClose(snapAt(walk({ move: [0, 1], yaw: 180 }), 60).player.pos, [0, 0, -T.player_speed], POS_TOL);
+  const p = snapAt(walk({ move: [0, 1], yaw: 180 }), 60).player.pos;
+  assertClose(p[0], 0, POS_TOL);
+  assertRunDistance(-p[2], 60);
 });
 
 test('[R2] vector [1,1] được chuẩn hóa về độ dài 1 (không nhanh hơn player_speed)', () => {
   const p = snapAt(walk({ move: [1, 1] }), 60).player.pos;
-  const d = T.player_speed / Math.SQRT2;
-  assertPosClose(p, [d, 0, d], POS_TOL);
-  assertClose(Math.hypot(p[0], p[2]), T.player_speed, POS_TOL, 'quãng đường:');
+  assertClose(p[0], p[2], POS_TOL, 'x = z:');
+  assertRunDistance(Math.hypot(p[0], p[2]), 60);
 });
 
 test('[R2] vector ngắn hơn 1 không bị phóng đại: [0, 0.5] đi nửa tốc độ', () => {
-  assertPosClose(snapAt(walk({ move: [0, 0.5] }), 60).player.pos, [0, 0, T.player_speed / 2], POS_TOL);
+  const p = snapAt(walk({ move: [0, 0.5] }), 60).player.pos;
+  assertRunDistance(p[2], 60, T.player_speed / 2);
 });
 
-test('[R2] quãng đường đi được tỉ lệ ticks: player_speed * ticks / 60', () => {
+test('[R2] quãng đường tỉ lệ ticks (tối đa player_speed * ticks / 60)', () => {
   const res = walk({ move: [0, 1], ticks: 90 });
-  assertClose(snapAt(res, 90).player.pos[2], (T.player_speed * 90) / 60, POS_TOL);
-  assertClose(snapAt(res, 30).player.pos[2], (T.player_speed * 30) / 60, POS_TOL);
-});
-
-test('[R2] mép đảo bán kính 40 chặn lại, không bao giờ vượt ra ngoài', () => {
-  const res = walk({ move: [0, 1], ticks: 180, pos: [0, 0, 38] });
-  for (const s of res.snapshots) {
-    assert.ok(Math.hypot(s.player.pos[0], s.player.pos[2]) <= ISLAND_RADIUS + 0.001, `tick ${s.tick} ra ngoài đảo`);
-  }
-  assertPosClose(snapAt(res, 180).player.pos, [0, 0, ISLAND_RADIUS], POS_TOL);
-  assert.equal(eventsNamed(res, 'player_hit').length, 0, 'fall_enabled=false: không có player_hit by fall');
-});
-
-test('[R2] mép đảo theo đường chéo: bị kéo về đúng bán kính 40 theo hướng tâm', () => {
-  const res = walk({ move: [1, 1], ticks: 120, pos: [28, 0, 28] });
-  const p = snapAt(res, 120).player.pos;
-  assertClose(Math.hypot(p[0], p[2]), ISLAND_RADIUS, POS_TOL, 'bán kính:');
-  assertClose(p[0], p[2], POS_TOL, 'giữ hướng tâm->người chơi:');
+  assertRunDistance(snapAt(res, 90).player.pos[2], 90);
+  assertRunDistance(snapAt(res, 30).player.pos[2], 30);
 });
 
 test('[R2] nhảy: y > 0 ngay sau khi bấm, quay về 0, không đổi vị trí XZ', () => {
@@ -93,9 +87,9 @@ test('[R2] nhảy: y > 0 ngay sau khi bấm, quay về 0, không đổi vị tr�
 });
 
 // ---------------------------------------------------------------------------
-// R3: nhặt đom đóm
+// R3: nhặt đom đóm (v1.1: nhặt KHÔNG cộng điểm; túi 10; bán kính 1.0)
 
-test('[R3] đom đóm trong pickup_radius được nhặt: mote_picked {carried}, điểm per_mote', () => {
+test('[R3] đom đóm trong pickup_radius được nhặt: mote_picked {carried}, chưa cộng điểm', () => {
   const sc = scen({ motes: [[0, 0, T.pickup_radius - 0.01]] });
   const res = runOk({ ticks: 5, snapshotEvery: 1, scenario: sc });
   const ev = eventsNamed(res, 'mote_picked');
@@ -105,8 +99,8 @@ test('[R3] đom đóm trong pickup_radius được nhặt: mote_picked {carried}
   const s = snapAt(res, 1);
   assert.equal(s.player.carried, 1);
   assert.equal(s.motes_active, 0);
-  assert.equal(s.score, S.per_mote);
-  assert.equal(res.end.score, S.per_mote);
+  assert.equal(s.score, 0, 'v1.1: điểm đom đóm tính khi nạp đèn, không khi nhặt');
+  assert.equal(res.end.score, 0);
 });
 
 test('[R3] đom đóm ngoài pickup_radius không bị nhặt', () => {
@@ -117,19 +111,33 @@ test('[R3] đom đóm ngoài pickup_radius không bị nhặt', () => {
   assert.equal(snapAt(res, 10).motes_active, 1);
 });
 
-test('[R3] đi tới đom đóm: nhặt đúng tick khi khoảng cách <= pickup_radius', () => {
-  const z0 = 5.05; // tránh biên chính xác
+// mô phỏng tăng tốc 1 m/s mỗi tick (design Phase 2 mục 4); hai cách tích phân vị trí -> khoảng tick.
+function ticksToReach(dist, model) {
+  let pos = 0;
+  let vel = 0;
+  for (let i = 1; i < 2000; i++) {
+    const prev = vel;
+    vel = Math.min(prev + 1, T.player_speed);
+    pos += (model === 'new' ? vel : prev) / 60;
+    if (dist - pos <= T.pickup_radius) return i;
+  }
+  throw new Error('không tới');
+}
+
+test('[R3] đi tới đom đóm: nhặt đúng tick khi khoảng cách <= pickup_radius (có gia tốc)', () => {
+  const z0 = 5.05;
   const res = runOk({
-    ticks: 120, snapshotEvery: 1,
+    ticks: 200, snapshotEvery: 1,
     scenario: scen({ motes: [[0, 0, z0]] }),
     inputs: frames({ tick: 0, move: [0, 1] }),
   });
-  const k = Math.ceil((z0 - T.pickup_radius) / STEP - 1e-6); // số bước để vào bán kính
+  const kLo = ticksToReach(z0, 'new');
+  const kHi = ticksToReach(z0, 'old') + 1;
   const ev = eventsNamed(res, 'mote_picked');
   assert.equal(ev.length, 1);
-  assert.equal(ev[0].tick, k);
-  assert.equal(snapAt(res, k).player.carried, 1);
-  assert.equal(snapAt(res, k - 1).player.carried, 0);
+  assert.ok(ev[0].tick >= kLo && ev[0].tick <= kHi, `tick nhặt ${ev[0].tick} ngoài [${kLo}, ${kHi}]`);
+  assert.equal(snapAt(res, ev[0].tick).player.carried, 1);
+  assert.equal(snapAt(res, ev[0].tick - 1).player.carried, 0);
 });
 
 test('[R3] túi đầy (carry_capacity) thì không nhặt, đom đóm ở lại', () => {
@@ -148,27 +156,26 @@ test('[R3] còn chỗ 1: hai đom đóm cùng lúc chỉ nhặt một (id nhỏ 
   const ev = eventsNamed(res, 'mote_picked');
   assert.equal(ev.length, 1);
   assert.deepEqual(ev[0].data, { carried: T.carry_capacity });
-  const s = snapAt(res, 10);
-  assert.deepEqual(s.motes.map((m) => m.id), ['M2']);
-  assert.equal(res.end.score, S.per_mote);
+  assert.deepEqual(snapAt(res, 10).motes.map((m) => m.id), ['M2']);
+  assert.equal(res.end.score, 0, 'nhặt không cộng điểm');
 });
 
-test('[R3] nhiều đom đóm cùng một bước: nhặt lần lượt, carried tăng dần, điểm = n * per_mote', () => {
+test('[R3] nhiều đom đóm cùng một bước: nhặt lần lượt, carried tăng dần, điểm vẫn 0 (chưa nạp)', () => {
   const sc = scen({ motes: [[0, 0, 0], [0.2, 0, 0], [0, 0, 0.2]] });
   const res = runOk({ ticks: 3, snapshotEvery: 1, scenario: sc });
   const ev = eventsNamed(res, 'mote_picked');
   assert.deepEqual(ev.map((e) => e.data.carried), [1, 2, 3]);
   assert.ok(ev.every((e) => e.tick === 1));
-  assert.equal(res.end.score, 3 * S.per_mote);
+  assert.equal(res.end.score, 0);
 });
 
 // ---------------------------------------------------------------------------
-// R4: nạp đèn, thắp đèn, thắng
+// R4: nạp đèn, thắp đèn, thắng (v1.1: điểm +10 mỗi đom đóm nạp, +100 đèn, đèn Đêm 1 theo ticket)
 
 const L1 = lanternPos(1);
 const interactAt0 = frames({ tick: 0, interact: true }, { tick: 1, interact: false });
 
-test('[R4] interact gần đèn: deposit đúng amount, carried giảm, chưa đủ thì chưa lit', () => {
+test('[R4] interact gần đèn: deposit đúng amount, carried giảm, chưa đủ thì chưa lit, +per_mote mỗi con nạp', () => {
   const partial = Math.max(1, T.lantern_cost - 1);
   const sc = scen({ player: { pos: L1, carried: partial } });
   const res = runOk({ ticks: 5, snapshotEvery: 1, scenario: sc, inputs: interactAt0 });
@@ -182,22 +189,38 @@ test('[R4] interact gần đèn: deposit đúng amount, carried giảm, chưa đ
   const l1 = s.lanterns.find((l) => l.id === 'L1');
   assert.equal(l1.deposited, partial);
   assert.equal(l1.lit, false);
-  assert.equal(res.end.score, 0);
+  assert.equal(res.end.score, partial * S.per_mote);
 });
 
-test('[R4] đủ lantern_cost: deposit rồi lantern_lit, lit = true, điểm per_lantern', () => {
+test('[R4] đủ lantern_cost: deposit rồi lantern_lit, lit = true, điểm = cost*per_mote + per_lantern', () => {
   const sc = scen({ player: { pos: L1, carried: T.lantern_cost } });
   const res = runOk({ ticks: 5, snapshotEvery: 1, scenario: sc, inputs: interactAt0 });
-  const names = res.events.map((e) => e.name);
-  assert.deepEqual(names, ['deposit', 'lantern_lit']);
+  assert.deepEqual(res.events.map((e) => e.name), ['deposit', 'lantern_lit']);
   assert.deepEqual(res.events[0].data, { lantern_id: 'L1', amount: T.lantern_cost, deposited: T.lantern_cost });
   assert.deepEqual(res.events[1].data, { lantern_id: 'L1' });
   assert.ok(res.events.every((e) => e.tick === 1));
   const s = snapAt(res, 1);
   assert.equal(s.lanterns.find((l) => l.id === 'L1').lit, true);
   assert.equal(s.player.carried, 0);
-  assert.equal(s.score, S.per_lantern);
+  assert.equal(s.score, T.lantern_cost * S.per_mote + S.per_lantern);
   assert.equal(res.end.state, 'playing', 'mới 1/5 đèn: chưa thắng');
+});
+
+test('[R4] đèn nhớ tiến độ: nạp nhiều lần, lần sau cộng dồn vào deposited', () => {
+  // Mây đứng ở chân đèn mang 4 -> nạp; đom đóm cách 1.5 m (ngoài pickup_radius) được nhặt khi bước tới, nạp lần hai.
+  const sc = scen({ player: { pos: L1, carried: 4 }, motes: [[L1[0], 0, L1[2] - 1.5]] });
+  const inputs = frames(
+    { tick: 0, interact: true, move: [0, 0] }, { tick: 1, interact: false, move: [0, -1] },
+    { tick: 10, move: [0, 0] },
+    { tick: 40, interact: true }, { tick: 41, interact: false },
+  );
+  const res = runOk({ ticks: 60, snapshotEvery: 1, scenario: sc, inputs });
+  const dep = eventsNamed(res, 'deposit');
+  assert.equal(dep.length, 2);
+  assert.deepEqual(dep[0].data, { lantern_id: 'L1', amount: 4, deposited: 4 });
+  assert.deepEqual(dep[1].data, { lantern_id: 'L1', amount: 1, deposited: 5 });
+  assert.equal(eventsNamed(res, 'mote_picked').length, 1);
+  assert.equal(res.end.score, 5 * S.per_mote);
 });
 
 test('[R4] đèn đã nạp dở: chỉ nạp phần còn thiếu (amount = min(carried, cost - deposited))', () => {
@@ -208,6 +231,7 @@ test('[R4] đèn đã nạp dở: chỉ nạp phần còn thiếu (amount = min(
   assert.deepEqual(dep.data, { lantern_id: 'L1', amount: 2, deposited: T.lantern_cost });
   assert.equal(eventsNamed(res, 'lantern_lit').length, 1);
   assert.equal(snapAt(res, 1).player.carried, T.carry_capacity - 2);
+  assert.equal(snapAt(res, 1).score, 2 * S.per_mote + S.per_lantern);
 });
 
 test('[R4] ngoài interact_radius thì không nạp', () => {
@@ -232,7 +256,6 @@ test('[R4] carried = 0 thì interact không có sự kiện', () => {
 
 test('[R4] interact chỉ kích hoạt ở cạnh false->true: giữ phím không nạp lại', () => {
   const sc = scen({ player: { pos: L1, carried: 2 }, motes: [[L1[0], 0, L1[2]]] });
-  // giữ interact suốt; đom đóm ở chân đèn được nhặt ở bước 0 (carried 3) -> chỉ 1 deposit nếu không có cạnh mới.
   const res = runOk({ ticks: 30, scenario: sc, inputs: frames({ tick: 0, interact: true }) });
   assert.equal(eventsNamed(res, 'deposit').length, 1);
 });
@@ -272,6 +295,7 @@ function winScenario({ t0 = 100, flames = T.flames } = {}) {
     time_left_s: t0,
   });
 }
+const winBase = T.lantern_cost * S.per_mote + S.per_lantern; // điểm nạp + thắp đèn cuối
 
 test('[R4] 4 đèn lit sẵn + nạp đèn cuối -> game_over won all_lit, end.state won, sim dừng', () => {
   const res = runOk({ ticks: 500, snapshotEvery: 1, scenario: winScenario(), inputs: interactAt0 });
@@ -287,63 +311,56 @@ test('[R4] 4 đèn lit sẵn + nạp đèn cuối -> game_over won all_lit, end.
   assert.equal(snapAt(res, 1).lanterns.filter((l) => l.lit).length, T.lantern_count_night1);
 });
 
-test('[R4] điểm thắng = per_lantern + per_second_left*floor(time_left) + per_flame_left*flames', () => {
+test('[R4] điểm thắng = nạp + per_lantern + per_second_left*floor(time_left) + per_flame_left*flames', () => {
   for (const [t0, flames] of [[100, T.flames], [60.5, 1], [300, 2]]) {
     const res = runOk({ ticks: 50, scenario: winScenario({ t0, flames }), inputs: interactAt0 });
-    const timeLeft = t0 - 1 / 60; // sau 1 bước
-    const expected = S.per_lantern + S.per_second_left * Math.floor(timeLeft) + S.per_flame_left * flames;
+    const expected = winBase + S.per_second_left * Math.floor(t0 - 1 / 60) + S.per_flame_left * flames;
     assert.equal(res.end.score, expected, `t0=${t0} flames=${flames}`);
     assert.equal(res.end.state, 'won');
   }
 });
 
-test('[R4] thắng thì có thưởng nhưng lantern_lit chỉ tính 1 lần (đèn lit sẵn không cộng)', () => {
-  const res = runOk({ ticks: 5, scenario: winScenario({ t0: 100 }), inputs: interactAt0 });
-  assert.equal(eventsNamed(res, 'lantern_lit').length, 1);
-  assert.equal(res.end.score, S.per_lantern + S.per_second_left * 99 + S.per_flame_left * T.flames);
-});
-
 // ---------------------------------------------------------------------------
 // R5: Bóng Mực đuổi, chạm
 
-test('[R5] Bóng Mực tiến về phía người chơi đúng shade_speed/60 mỗi tick (dọc trục)', () => {
-  const res = runOk({ ticks: 100, snapshotEvery: 1, scenario: scen({ shades: [{ pos: [20, 0, 0] }] }) });
+test('[R5] Bóng Mực (chase) tiến về phía người chơi đúng shade_speed/60 mỗi tick (dọc trục)', () => {
+  const res = runOk({ ticks: 150, snapshotEvery: 1, scenario: scen({ shades: [shade([17, 0, 0])] }) });
   for (const s of res.snapshots) {
     const sh = s.shades[0];
     assert.equal(sh.id, 'S1');
-    assert.equal(sh.state, 'chase');
-    assert.equal(sh.pos[1], SHADE_Y);
-    assertClose(sh.pos[0], 20 - s.tick * SHADE_STEP, POS_TOL, `tick ${s.tick} x:`);
+    assert.equal(sh.state, 'chase', `tick ${s.tick}`);
+    if (s.tick >= 1) assert.equal(sh.pos[1], SHADE_Y);
+    assertClose(sh.pos[0], 17 - s.tick * SHADE_STEP, POS_TOL, `tick ${s.tick} x:`);
     assertClose(sh.pos[2], 0, POS_TOL);
   }
 });
 
 test('[R5] Bóng Mực đuổi theo đường thẳng (chéo): khoảng cách giảm đúng shade_speed/60 mỗi tick', () => {
-  const start = [12, 0, 16]; // cách 20 m
-  const res = runOk({ ticks: 100, snapshotEvery: 1, scenario: scen({ shades: [{ pos: start }] }) });
+  const start = [10.2, 0, 13.6]; // cách 17 m (nằm giữa 12 m và 18 m: giữ trạng thái chase)
+  const res = runOk({ ticks: 150, snapshotEvery: 1, scenario: scen({ shades: [shade(start)] }) });
   for (const s of res.snapshots) {
     const d = distXZ(s.shades[0].pos, [0, 0, 0]);
-    assertClose(d, 20 - s.tick * SHADE_STEP, POS_TOL, `tick ${s.tick}:`);
-    const f = 1 - (s.tick * SHADE_STEP) / 20;
-    assertClose(s.shades[0].pos[0], 12 * f, POS_TOL);
-    assertClose(s.shades[0].pos[2], 16 * f, POS_TOL);
+    assertClose(d, 17 - s.tick * SHADE_STEP, POS_TOL, `tick ${s.tick}:`);
+    const f = 1 - (s.tick * SHADE_STEP) / 17;
+    assertClose(s.shades[0].pos[0], 10.2 * f, POS_TOL);
+    assertClose(s.shades[0].pos[2], 13.6 * f, POS_TOL);
   }
 });
 
 test('[R5] Bóng Mực đuổi theo người chơi đang chạy: mục tiêu là vị trí hiện tại', () => {
   const res = runOk({
     ticks: 30, snapshotEvery: 30,
-    scenario: scen({ shades: [{ pos: [0, 0, 30] }] }),
+    scenario: scen({ shades: [shade([0, 0, 15])] }),
     inputs: frames({ tick: 0, move: [1, 0] }), // người chơi đi +X
   });
   const s = snapAt(res, 30);
   assert.ok(s.shades[0].pos[0] > 0, 'Bóng Mực phải lệch về phía người chơi (+X)');
-  assert.ok(s.shades[0].pos[2] < 30);
+  assert.ok(s.shades[0].pos[2] < 15);
 });
 
-test('[R5] trúng: player_hit {by:"shade", flames, dropped = floor(carried*hit_drop_ratio)}', () => {
+test('[R5] trúng: player_hit {by:"shade", flames, dropped=floor(carried*hit_drop_ratio)}, Bóng Mực recoil, đom đóm rơi quanh Mây', () => {
   for (const carried of [0, 1, 3, 4, T.carry_capacity].filter((c) => c <= T.carry_capacity)) {
-    const sc = scen({ player: { carried }, shades: [{ pos: [T.shade_hit_radius * 0.5, 0, 0] }] });
+    const sc = scen({ player: { carried }, shades: [shade([T.shade_hit_radius * 0.5, 0, 0])] });
     const res = runOk({ ticks: 3, snapshotEvery: 1, scenario: sc });
     const hits = eventsNamed(res, 'player_hit');
     assert.equal(hits.length, 1, `carried=${carried}`);
@@ -353,11 +370,20 @@ test('[R5] trúng: player_hit {by:"shade", flames, dropped = floor(carried*hit_d
     const s = snapAt(res, 1);
     assert.equal(s.player.flames, T.flames - 1);
     assert.equal(s.player.carried, carried - dropped);
+    assert.equal(s.player.invuln, true);
+    assert.equal(s.shades[0].state, 'recoil');
+    const fallen = s.motes.filter((m) => m.kind === 'dropped');
+    assert.equal(fallen.length, dropped, 'đom đóm rơi xuất hiện thành mote kind=dropped');
+    for (const m of fallen) {
+      const d = distXZ(m.pos, s.player.pos);
+      assert.ok(d >= 1.5 - POS_TOL && d <= 2.5 + POS_TOL, `đom đóm rơi ngoài vành 1.5-2.5: ${d}`);
+      assert.ok(m.ttl_s > 7.9 && m.ttl_s <= 8, `ttl_s ${m.ttl_s} (480 tick = 8 s)`);
+    }
   }
 });
 
 test('[R5] Bóng Mực ngoài shade_hit_radius thì không gây sát thương', () => {
-  const sc = scen({ shades: [{ pos: [T.shade_hit_radius + 3, 0, 0] }] });
+  const sc = scen({ shades: [shade([T.shade_hit_radius + 3, 0, 0])] });
   const res = runOk({ ticks: 5, scenario: sc });
   assert.equal(eventsNamed(res, 'player_hit').length, 0);
 });
@@ -366,7 +392,7 @@ test('[R5] trong invuln_s không trúng lần 2: hai lần trúng cách nhau >= 
   const inv = ticksOf(T.invuln_s);
   const res = runOk({
     ticks: inv * T.flames + 60, snapshotEvery: 30,
-    scenario: scen({ shades: [{ pos: [0.3, 0, 0] }] }),
+    scenario: scen({ shades: [shade([0.3, 0, 0])] }),
   });
   const hits = eventsNamed(res, 'player_hit');
   assert.ok(hits.length >= 2);
@@ -375,11 +401,12 @@ test('[R5] trong invuln_s không trúng lần 2: hai lần trúng cách nhau >= 
   }
 });
 
-test('[R5] nhịp trúng chính xác theo design: tick 1, 1+inv, 1+2*inv...; hết lửa -> lost no_flames', () => {
+test('[R5] nhịp trúng theo design: tick 1, 1+inv, 1+2*inv...; hết lửa -> lost no_flames', () => {
+  // Bóng Mực recoil 2 m / 60 tick rồi quay lại, chạm lúc bất tử thì không làm gì -> trúng lại ngay khi hết bất tử.
   const inv = ticksOf(T.invuln_s);
   const res = runOk({
     ticks: inv * T.flames + 60, snapshotEvery: 30,
-    scenario: scen({ shades: [{ pos: [0.3, 0, 0] }] }),
+    scenario: scen({ shades: [shade([0.3, 0, 0])] }),
   });
   const hits = eventsNamed(res, 'player_hit');
   assert.deepEqual(hits.map((h) => h.tick), Array.from({ length: T.flames }, (_, i) => 1 + i * inv));
@@ -395,7 +422,7 @@ test('[R5] nhịp trúng chính xác theo design: tick 1, 1+inv, 1+2*inv...; h�
 });
 
 test('[R5] flames = 1 mà bị trúng -> player_hit flames 0 rồi game_over lost no_flames ngay tick đó', () => {
-  const sc = scen({ player: { flames: 1 }, shades: [{ pos: [0.3, 0, 0] }] });
+  const sc = scen({ player: { flames: 1 }, shades: [shade([0.3, 0, 0])] });
   const res = runOk({ ticks: 100, snapshotEvery: 1, scenario: sc });
   assert.deepEqual(res.events.map((e) => e.name), ['player_hit', 'game_over']);
   assert.deepEqual(res.events[0].data, { by: 'shade', flames: 0, dropped: 0 });
@@ -406,93 +433,83 @@ test('[R5] flames = 1 mà bị trúng -> player_hit flames 0 rồi game_over los
   assert.equal(snapAt(res, 1).state, 'lost');
 });
 
-test('[R5] không bao giờ có player_hit by "fall" (fall_enabled=false)', () => {
-  const res = runOk({
-    ticks: 300, scenario: scen(),
-    inputs: frames({ tick: 0, move: [1, 0] }), // đi thẳng ra mép
-  });
-  assert.equal(T.fall_enabled, false);
-  assert.equal(eventsNamed(res, 'player_hit').length, 0);
-});
-
 // ---------------------------------------------------------------------------
-// R6: tỏa sáng
+// R6: tỏa sáng (v1.1: 3 đom đóm, 3D, đẩy 4 m trong 15 tick, choáng 120 tick, hồi chiêu 3 s)
 
 const pulseAt0 = frames({ tick: 0, pulse: true }, { tick: 1, pulse: false });
+const STUN = ticksOf(T.pulse_stun_s);
 
-test('[R6] pulse: stunned_ids, carried giảm pulse_cost, Bóng Mực bị đẩy thêm pulse_push_m, điểm per_stun', () => {
+function stunRun(ticks, d0 = 3) {
+  return runOk({
+    ticks, snapshotEvery: 1,
+    scenario: scen({ player: { carried: T.pulse_cost }, shades: [shade([d0, 0, 0])] }),
+    inputs: pulseAt0,
+  });
+}
+
+test('[R6] pulse: stunned_ids, carried giảm pulse_cost, Bóng Mực xa thêm pulse_push_m, điểm per_stun', () => {
   const d0 = T.pulse_radius / 2;
   const sc = scen({
-    player: { carried: 3 },
-    shades: [{ pos: [d0, 0, 0] }, { pos: [0, 0, T.pulse_radius + 3] }],
+    player: { carried: T.pulse_cost + 2 },
+    shades: [shade([d0, 0, 0]), shade([0, 0, T.pulse_radius + 3])],
   });
-  const res = runOk({ ticks: 5, snapshotEvery: 1, scenario: sc, inputs: pulseAt0 });
+  const res = runOk({ ticks: 40, snapshotEvery: 1, scenario: sc, inputs: pulseAt0 });
   const ev = eventsNamed(res, 'pulse');
   assert.equal(ev.length, 1);
   assert.equal(ev[0].tick, 1);
   assert.deepEqual(ev[0].data, { stunned_ids: ['S1'] });
-  const s = snapAt(res, 1);
-  assert.equal(s.player.carried, 3 - T.pulse_cost);
-  const s1 = s.shades.find((x) => x.id === 'S1');
-  const s2 = s.shades.find((x) => x.id === 'S2');
-  assert.equal(s1.state, 'stunned');
-  assertPosClose(s1.pos, [d0 + T.pulse_push_m, SHADE_Y, 0], POS_TOL, 'S1 bị đẩy:');
-  assert.equal(s2.state, 'chase', 'ngoài pulse_radius thì không bị choáng');
+  const s = snapAt(res, 40);
+  assert.equal(s.player.carried, 2);
+  assert.equal(s.shades.find((x) => x.id === 'S1').state, 'stunned');
+  assertPosClose(s.shades.find((x) => x.id === 'S1').pos, [d0 + T.pulse_push_m, SHADE_Y, 0], POS_TOL, 'S1 bị đẩy:');
+  assert.notEqual(s.shades.find((x) => x.id === 'S2').state, 'stunned', 'ngoài pulse_radius không bị choáng');
   assert.equal(s.score, S.per_stun);
   assert.equal(res.end.score, S.per_stun);
+  assertClose(snapAt(res, 1).player.pulse_cd_s, T.pulse_cooldown_s, 0.02, 'pulse_cd_s:');
+});
+
+test('[R6] đẩy dần trong ~15 tick (<= 4/15 m mỗi tick), tổng pulse_push_m, rồi đứng yên trong lúc choáng', () => {
+  const d0 = 3;
+  const res = stunRun(60, d0);
+  let prev = d0;
+  for (let k = 1; k <= 60; k++) {
+    const x = snapAt(res, k).shades[0].pos[0];
+    assert.ok(x >= prev - POS_TOL, `tick ${k} lùi về phía người chơi`);
+    assert.ok(x - prev <= T.pulse_push_m / 15 + 2 * POS_TOL, `tick ${k} đẩy quá nhanh: ${x - prev}`);
+    prev = x;
+  }
+  assert.ok(snapAt(res, 5).shades[0].pos[0] < d0 + T.pulse_push_m - 0.5, 'tick 5 chưa đẩy xong (không tức thì)');
+  for (const k of [17, 30, 59]) assertClose(snapAt(res, k).shades[0].pos[0], d0 + T.pulse_push_m, POS_TOL, `tick ${k}:`);
 });
 
 test('[R6] đẩy theo hướng ra xa người chơi (chéo), mỗi Bóng Mực trong bán kính được tính điểm', () => {
   const d0 = 3;
   const sc = scen({
-    player: { carried: 2 },
-    shades: [{ pos: [d0 * 0.8, 0, d0 * 0.6] }, { pos: [-d0, 0, 0] }],
+    player: { carried: T.pulse_cost },
+    shades: [shade([d0 * 0.8, 0, d0 * 0.6]), shade([-d0, 0, 0])],
   });
-  const res = runOk({ ticks: 3, snapshotEvery: 1, scenario: sc, inputs: pulseAt0 });
+  const res = runOk({ ticks: 30, snapshotEvery: 1, scenario: sc, inputs: pulseAt0 });
   assert.deepEqual(eventsNamed(res, 'pulse')[0].data, { stunned_ids: ['S1', 'S2'] });
   const f = (d0 + T.pulse_push_m) / d0;
-  const s = snapAt(res, 1);
+  const s = snapAt(res, 30);
   assertPosClose(s.shades[0].pos, [d0 * 0.8 * f, SHADE_Y, d0 * 0.6 * f], POS_TOL);
   assertPosClose(s.shades[1].pos, [-(d0 + T.pulse_push_m), SHADE_Y, 0], POS_TOL);
   assert.equal(res.end.score, 2 * S.per_stun);
 });
 
-function stunRun(ticks) {
-  const d0 = 3;
-  return runOk({
-    ticks, snapshotEvery: 1,
-    scenario: scen({ player: { carried: 1 }, shades: [{ pos: [d0, 0, 0] }] }),
-    inputs: pulseAt0,
-  });
-}
-
-test('[R6] choáng kéo dài pulse_stun_s: đứng yên khi choáng, rồi về chase và đuổi lại', () => {
-  const st = ticksOf(T.pulse_stun_s);
-  const res = stunRun(st + 40);
-  const pushed = 3 + T.pulse_push_m;
-  for (const k of [1, 10, Math.floor(st / 2), st - 5]) {
-    const sh = snapAt(res, k).shades[0];
-    assert.equal(sh.state, 'stunned', `tick ${k}`);
-    assertClose(sh.pos[0], pushed, POS_TOL, `tick ${k} đứng yên:`);
+test('[R6] choáng kéo dài pulse_stun_s (120 tick, sai số 2 tick): stunned rồi quay lại chase và đuổi', () => {
+  const res = stunRun(STUN + 40);
+  for (const k of [1, 10, Math.floor(STUN / 2), STUN - 3]) {
+    assert.equal(snapAt(res, k).shades[0].state, 'stunned', `tick ${k}`);
   }
-  assert.equal(snapAt(res, st + 5).shades[0].state, 'chase');
-  const x1 = snapAt(res, st + 5).shades[0].pos[0];
-  const x2 = snapAt(res, st + 35).shades[0].pos[0];
+  assert.equal(snapAt(res, STUN + 5).shades[0].state, 'chase');
+  const x1 = snapAt(res, STUN + 5).shades[0].pos[0];
+  const x2 = snapAt(res, STUN + 35).shades[0].pos[0];
   assert.ok(x1 - x2 >= 25 * SHADE_STEP, 'sau choáng Bóng Mực phải tiến lại gần người chơi');
 });
 
-test('[R6] biên chính xác theo design (bước 7-8): choáng ở tick 1..stun-1, chase từ tick stun', () => {
-  const st = ticksOf(T.pulse_stun_s);
-  const res = stunRun(st + 2);
-  assert.equal(snapAt(res, st - 1).shades[0].state, 'stunned');
-  assert.equal(snapAt(res, st).shades[0].state, 'chase');
-  // chưa di chuyển ở bước vừa hết choáng
-  assertClose(snapAt(res, st).shades[0].pos[0], 3 + T.pulse_push_m, POS_TOL);
-});
-
 test('[R6] Bóng Mực đang choáng không gây sát thương', () => {
-  // Người chơi lao vào Bóng Mực đang choáng: pulse đẩy nó ra 7 m, đi tới 7 m rồi không bị trúng.
-  const sc = scen({ player: { carried: 1 }, shades: [{ pos: [3, 0, 0] }] });
+  const sc = scen({ player: { carried: T.pulse_cost }, shades: [shade([3, 0, 0])] });
   const inputs = frames({ tick: 0, pulse: true, move: [1, 0] }, { tick: 1, pulse: false });
   const res = runOk({ ticks: 80, snapshotEvery: 20, scenario: sc, inputs });
   assert.equal(eventsNamed(res, 'player_hit').length, 0);
@@ -500,21 +517,20 @@ test('[R6] Bóng Mực đang choáng không gây sát thương', () => {
 });
 
 test('[R6] pulse lần 2 trong hồi chiêu (pulse_cooldown_s) không có sự kiện, không tốn thêm', () => {
-  const d0 = 3;
-  const sc = scen({ player: { carried: 3 }, shades: [{ pos: [d0, 0, 0] }] });
+  const sc = scen({ player: { carried: 3 * T.pulse_cost }, shades: [shade([3, 0, 0])] });
   const inputs = frames(
     { tick: 0, pulse: true }, { tick: 1, pulse: false },
     { tick: 10, pulse: true }, { tick: 11, pulse: false },
   );
   const res = runOk({ ticks: 40, snapshotEvery: 1, scenario: sc, inputs });
   assert.equal(eventsNamed(res, 'pulse').length, 1);
-  assert.equal(snapAt(res, 40).player.carried, 3 - T.pulse_cost);
+  assert.equal(snapAt(res, 40).player.carried, 2 * T.pulse_cost);
   assert.equal(res.end.score, S.per_stun);
 });
 
 test('[R6] sau hồi chiêu pulse dùng lại được', () => {
   const cd = ticksOf(T.pulse_cooldown_s);
-  const sc = scen({ player: { carried: 3 } });
+  const sc = scen({ player: { carried: 3 * T.pulse_cost } });
   const t2 = cd + 10;
   const inputs = frames(
     { tick: 0, pulse: true }, { tick: 1, pulse: false },
@@ -525,12 +541,12 @@ test('[R6] sau hồi chiêu pulse dùng lại được', () => {
   assert.equal(ev.length, 2);
   assert.equal(ev[1].tick, t2 + 1);
   assert.ok(Array.isArray(ev[1].data.stunned_ids));
-  assert.equal(snapAt(res, t2 + 1).player.carried, 3 - 2 * T.pulse_cost);
+  assert.equal(snapAt(res, t2 + 1).player.carried, 3 * T.pulse_cost - 2 * T.pulse_cost);
 });
 
-test('[R6] biên hồi chiêu chính xác theo design: pulse ở tick cd-1 bị chặn, ở tick cd được phép (sự kiện tick cd+1)', () => {
+test('[R6] biên hồi chiêu theo thứ tự bước của ticket: pulse ở tick cd-1 bị chặn, ở tick cd được (sự kiện tick cd+1)', () => {
   const cd = ticksOf(T.pulse_cooldown_s);
-  const sc = scen({ player: { carried: 4 } });
+  const sc = scen({ player: { carried: 3 * T.pulse_cost } });
   const early = frames(
     { tick: 0, pulse: true }, { tick: 1, pulse: false },
     { tick: cd - 1, pulse: true }, { tick: cd, pulse: false },
@@ -547,7 +563,7 @@ test('[R6] biên hồi chiêu chính xác theo design: pulse ở tick cd-1 bị 
 
 test('[R6] carried < pulse_cost thì pulse không có sự kiện, không choáng, không tốn', () => {
   const carried = T.pulse_cost - 1;
-  const sc = scen({ player: { carried }, shades: [{ pos: [3, 0, 0] }] });
+  const sc = scen({ player: { carried }, shades: [shade([3, 0, 0])] });
   const res = runOk({ ticks: 5, snapshotEvery: 1, scenario: sc, inputs: pulseAt0 });
   assert.equal(eventsNamed(res, 'pulse').length, 0);
   const s = snapAt(res, 1);
@@ -559,28 +575,28 @@ test('[R6] carried < pulse_cost thì pulse không có sự kiện, không choán
 
 test('[R6] giữ phím pulse không kích hoạt lặp (chỉ cạnh false->true)', () => {
   const cd = ticksOf(T.pulse_cooldown_s);
-  const sc = scen({ player: { carried: 4 } });
+  const sc = scen({ player: { carried: T.carry_capacity } });
   const res = runOk({ ticks: cd * 3, scenario: sc, inputs: frames({ tick: 0, pulse: true }) });
   assert.equal(eventsNamed(res, 'pulse').length, 1);
 });
 
 test('[R6] pulse không trúng ai vẫn tốn ánh sáng và có sự kiện với stunned_ids rỗng', () => {
-  const res = runOk({ ticks: 3, snapshotEvery: 1, scenario: scen({ player: { carried: 2 } }), inputs: pulseAt0 });
+  const res = runOk({ ticks: 3, snapshotEvery: 1, scenario: scen({ player: { carried: T.pulse_cost + 2 } }), inputs: pulseAt0 });
   const ev = eventsNamed(res, 'pulse');
   assert.equal(ev.length, 1);
   assert.deepEqual(ev[0].data, { stunned_ids: [] });
-  assert.equal(snapAt(res, 1).player.carried, 2 - T.pulse_cost);
+  assert.equal(snapAt(res, 1).player.carried, 2);
   assert.equal(res.end.score, 0);
 });
 
 // ---------------------------------------------------------------------------
-// R7: Bóng Mực sợ đèn đã thắp
+// R7: Bóng Mực sợ đèn đã thắp (v1.1: vùng an toàn 6 m, Bóng Mực phải ở trạng thái chase từ <= 18 m)
 
 test('[R7] Bóng Mực đuổi người chơi đứng sát đèn đã thắp không bao giờ vào trong safe_radius', () => {
   const sc = scen({
     player: { pos: L1 },
     lanterns: [{ id: 'L1', lit: true }],
-    shades: [{ pos: [20, 0, 25] }, { pos: [-18, 0, 30] }, { pos: [0, 0, -10] }],
+    shades: [shade([10, 0, 25]), shade([-12, 0, 30]), shade([0, 0, 12])],
   });
   const res = runOk({ ticks: 900, snapshotEvery: 1, scenario: sc });
   let minD = Infinity;
@@ -597,21 +613,22 @@ test('[R7] Bóng Mực đuổi người chơi đứng sát đèn đã thắp kh�
 });
 
 test('[R7] đèn CHƯA thắp không có vùng an toàn: Bóng Mực tới sát và gây sát thương', () => {
-  const sc = scen({ player: { pos: L1 }, shades: [{ pos: [20, 0, 25] }] });
+  const sc = scen({ player: { pos: L1 }, shades: [shade([10, 0, 25])] });
   const res = runOk({ ticks: 600, snapshotEvery: 1, scenario: sc });
   const minD = Math.min(...res.snapshots.map((s) => distXZ(s.shades[0].pos, L1)));
   assert.ok(minD < T.safe_radius - 1, `min ${minD}`);
   assert.ok(eventsNamed(res, 'player_hit').length >= 1);
 });
 
-test('[R7] Bóng Mực đang nằm trong safe_radius của đèn đã thắp bị đẩy ra ngay sau bước đầu', () => {
+test('[R7] Bóng Mực đang nằm trong safe_radius của đèn đã sáng sẵn không ở lại bên trong sau tick đầu', () => {
   const sc = scen({
     player: { pos: [0, 0, -30] },
     lanterns: [{ id: 'L1', lit: true }],
-    shades: [{ pos: [L1[0] + 1, 0, L1[2]] }],
+    shades: [shade([L1[0] + 1, 0, L1[2]])],
   });
-  const res = runOk({ ticks: 5, snapshotEvery: 1, scenario: sc });
-  for (const s of res.snapshots.filter((x) => x.tick >= 1)) {
+  const res = runOk({ ticks: 40, snapshotEvery: 1, scenario: sc });
+  // Bóng đang chase cách Mây 55 m (> 18 m) nên về wander; dù thế nào cũng không được ở trong vùng an toàn.
+  for (const s of res.snapshots.filter((x) => x.tick >= 36)) {
     assert.ok(distXZ(s.shades[0].pos, L1) >= T.safe_radius - POS_TOL, `tick ${s.tick}`);
   }
 });
@@ -645,21 +662,22 @@ test('[R8] hết đêm mặc định (night1_duration_s) không thắp đèn -> 
   assert.equal(res.end.state, 'lost');
 });
 
-test('[R8] thắp xong đèn cuối đúng lúc còn thời gian thì thắng chứ không thua dawn', () => {
+test('[R8] thắp xong đèn cuối khi còn thời gian thì thắng chứ không thua dawn', () => {
   const res = runOk({ ticks: 100, scenario: winScenario({ t0: 2 }), inputs: interactAt0 });
   assert.deepEqual(gameOver(res)[0].data, { result: 'won', reason: 'all_lit' });
 });
 
 // ---------------------------------------------------------------------------
-// R9: điểm số
+// R9: điểm số (v1.1: +10 mỗi đom đóm NẠP, +100 đèn, +5 mỗi Bóng Mực trúng pulse, thưởng khi thắng)
 
-test('[R9] điểm trong snapshot và end = tổng điểm từ sự kiện (nhặt, tỏa sáng, thắp đèn, thưởng thắng)', () => {
-  // 2 đom đóm tại chỗ + pulse tick 0 (1 Bóng Mực trong bán kính), rồi nạp đèn L1 (thiếu 1) ở tick 5.
+test('[R9] điểm trong snapshot và end = tổng điểm từ sự kiện (nạp, tỏa sáng, thắp đèn, thưởng thắng)', () => {
+  // mang 2 + nhặt 2 tại chỗ = 4; pulse tick 0 (-3, 1 Bóng Mực trong 5 m); nạp 1 đom đóm còn lại vào L1 (thiếu 1) ở tick 5.
   const t0 = 100;
   const sc = scen({
     time_left_s: t0,
+    player: { carried: 2 },
     motes: [[0, 0, 0], [0.1, 0, 0]],
-    shades: [{ pos: [3, 0, 0] }],
+    shades: [shade([3, 0, 0])],
     lanterns: [
       { id: 'L1', pos: [1, 0, 0], deposited: T.lantern_cost - 1 },
       ...[2, 3, 4, 5].map((k) => ({ id: `L${k}`, lit: true })),
@@ -670,27 +688,26 @@ test('[R9] điểm trong snapshot và end = tổng điểm từ sự kiện (nh�
     { tick: 5, interact: true }, { tick: 6, interact: false },
   );
   const res = runOk({ ticks: 200, snapshotEvery: 1, scenario: sc, inputs });
-  const names = res.events.map((e) => e.name);
-  assert.deepEqual(names, ['mote_picked', 'mote_picked', 'pulse', 'deposit', 'lantern_lit', 'game_over']);
-  const expected = 2 * S.per_mote + S.per_stun + S.per_lantern
+  assert.deepEqual(res.events.map((e) => e.name),
+    ['mote_picked', 'mote_picked', 'pulse', 'deposit', 'lantern_lit', 'game_over']);
+  const expected = 1 * S.per_mote + S.per_stun + S.per_lantern
     + S.per_second_left * Math.floor(t0 - 6 / 60) + S.per_flame_left * T.flames;
   assert.equal(res.end.score, expected);
   assert.equal(assertScoreConsistent(res, { t0 }), expected);
 });
 
-test('[R9] ván thua: điểm chỉ gồm sự kiện, không có thưởng thời gian/máu', () => {
+test('[R9] ván thua: điểm chỉ gồm sự kiện (nạp), không có thưởng thời gian/máu', () => {
   const sc = scen({
-    player: { flames: 1 },
-    motes: [[0, 0, 0]],
-    shades: [{ pos: [0.3, 0, 0] }],
+    player: { pos: L1, carried: 4, flames: 1 },
+    shades: [shade([L1[0] + 0.3, 0, L1[2]])],
   });
-  const res = runOk({ ticks: 50, snapshotEvery: 1, scenario: sc });
+  const res = runOk({ ticks: 50, snapshotEvery: 1, scenario: sc, inputs: interactAt0 });
   assert.equal(res.end.state, 'lost');
-  assert.equal(res.end.score, S.per_mote);
+  assert.equal(res.end.score, 4 * S.per_mote);
   assertScoreConsistent(res, { flames0: 1 });
 });
 
-test('[R9] ván ngẫu nhiên dài (seed cố định, di chuyển + pulse + interact): điểm luôn khớp bảng điểm', () => {
+test('[R9] ván ngẫu nhiên dài (seed cố định, di chuyển + pulse + interact + dash): điểm luôn khớp bảng điểm', () => {
   const f = [];
   for (let k = 0; k < 3000; k += 25) f.push({ tick: k, move: [Math.sin(k / 50), Math.cos(k / 80)], cam_yaw_deg: k % 360 });
   const extra = [];
@@ -708,13 +725,13 @@ test('[R9] ván ngẫu nhiên dài (seed cố định, di chuyển + pulse + int
 });
 
 // ---------------------------------------------------------------------------
-// Sinh ngẫu nhiên theo design mục 7 (liên quan R10: id tự sinh phải tất định)
+// Sinh ngẫu nhiên theo lịch (v1.1: Bóng Mực từ tick 300; đom đóm tick 240, 480, ...). Liên quan R10: id tự sinh tất định.
 
-test('[R10] Bóng Mực ngẫu nhiên sinh thêm mỗi 1200 tick với sự kiện shade_spawned, id nối tiếp S3, S4', () => {
+test('[R10] Bóng Mực ngẫu nhiên: 2 con tại tick 300 (S1, S2), rồi 1 con mỗi 480 tick (S3, S4), id nối tiếp', () => {
   const sc = { random_motes: false, player: { flames: 100 } }; // random_shades mặc định bật
-  const res = runOk({ seed: 4, ticks: 2500, snapshotEvery: 1250, scenario: sc });
+  const res = runOk({ seed: 4, ticks: 1300, snapshotEvery: 1300, scenario: sc });
   const ev = eventsNamed(res, 'shade_spawned');
-  assert.deepEqual(ev.map((e) => [e.tick, e.data.id]), [[1200, 'S3'], [2400, 'S4']]);
+  assert.deepEqual(ev.map((e) => [e.tick, e.data.id]), [[300, 'S1'], [300, 'S2'], [780, 'S3'], [1260, 'S4']]);
 });
 
 test('[R10] random_shades:false / random_motes:false: không bao giờ tự sinh', () => {
@@ -726,18 +743,15 @@ test('[R10] random_shades:false / random_motes:false: không bao giờ tự sinh
   }
 });
 
-test('[R10] đom đóm ngẫu nhiên được bổ sung khi < 20: sau khi nhặt bớt, số đom đóm tăng lại', () => {
-  // Người chơi gần như đứng yên; ta chỉ cần: mỗi 120 tick, nếu < 20 thì +1 (không sự kiện).
-  const sc = { random_shades: false, player: { pos: [0, 0, 0] } };
-  // đi một vòng để nhặt vài con đom đóm rồi đứng yên
-  const f = [{ tick: 0, move: [0, 1] }, { tick: 300, move: [1, 0] }, { tick: 600, move: [0, 0] }];
-  const res = runOk({ seed: 8, ticks: 2400, snapshotEvery: 120, scenario: sc, inputs: { frames: f } });
-  const picked = eventsNamed(res, 'mote_picked').length;
-  const last = res.snapshots[res.snapshots.length - 1];
-  const afterWalk = res.snapshots.find((s) => s.tick === 600);
-  if (picked > 0) {
-    assert.ok(last.motes_active > afterWalk.motes_active || afterWalk.motes_active === 20,
-      'đom đóm phải được sinh lại dần');
-  }
-  assert.ok(last.motes_active <= 20);
+test('[R10] đom đóm ngẫu nhiên: 20 lúc đầu, +1 tại tick 240, 480, ...; Đêm 1 chỉ có 24 điểm nên dừng ở 24', () => {
+  const sc = { random_shades: false, player: { pos: [0, 0, 0], flames: T.flames } };
+  const res = runOk({ seed: 8, ticks: 1300, snapshotEvery: 1, scenario: sc });
+  assert.equal(snapAt(res, 0).motes_active, 20);
+  assert.equal(snapAt(res, 239).motes_active, 20);
+  assert.equal(snapAt(res, 240).motes_active, 21);
+  assert.equal(snapAt(res, 479).motes_active, 21);
+  assert.equal(snapAt(res, 480).motes_active, 22);
+  assert.equal(snapAt(res, 720).motes_active, 23);
+  assert.equal(snapAt(res, 960).motes_active, 24);
+  assert.equal(snapAt(res, 1200).motes_active, 24, 'hết điểm trống thì bỏ lượt');
 });

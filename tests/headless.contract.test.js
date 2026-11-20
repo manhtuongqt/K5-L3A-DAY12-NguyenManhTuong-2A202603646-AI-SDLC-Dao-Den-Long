@@ -4,12 +4,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import {
-  T, SCENARIO_DIR, ISLAND_RADIUS, SHADE_Y, lanternPos, distXZ, round3,
-  run, runOk, scen, frames, snapAt, eventsNamed, assertClose, assertPosClose,
+  T, SCENARIO_DIR, lanternPos, distXZ, circlePts,
+  run, runOk, scen, frames, snapAt, eventsNamed, assertClose, assertRunDistance,
 } from './helpers.js';
 
-const SNAPSHOT_KEYS = ['type', 'tick', 'sim_tick', 'state', 'time_left_s', 'score', 'player',
-  'lanterns', 'shades', 'motes_active', 'motes'];
+// Snapshot v1.1: thứ tự khóa theo docs/notes/phase-2-design.md mục 10.
+const SNAPSHOT_KEYS = ['type', 'tick', 'sim_tick', 'night', 'state', 'time_left_s', 'score', 'wind',
+  'player', 'lanterns', 'shades', 'motes_active', 'motes', 'drifters', 'charms'];
+const PLAYER_KEYS = ['pos', 'vel', 'grounded', 'invuln', 'flames', 'carried', 'dash_cd_s', 'pulse_cd_s', 'charm_s'];
 
 // Đệ quy gom mọi số trong một giá trị JSON.
 function numbersIn(v, acc = []) {
@@ -22,65 +24,97 @@ function numbersIn(v, acc = []) {
 // ---------------------------------------------------------------------------
 // R1: snapshot tick 0, cấu trúc
 
-test('[R1] snapshot tick 0 là dòng đầu, đủ trường, đúng trạng thái mặc định', () => {
+test('[R1] snapshot tick 0 là dòng đầu, đủ trường, đúng trạng thái mặc định Đêm 1 (v1.1)', () => {
   const res = runOk({ seed: 7, ticks: 5 });
   const s = res.lines[0];
   assert.equal(s.type, 'snapshot');
   assert.equal(s.tick, 0);
   assert.equal(s.sim_tick, 0);
+  assert.equal(s.night, 1);
   assert.equal(s.state, 'playing');
   assert.equal(s.time_left_s, T.night1_duration_s);
   assert.equal(s.score, 0);
-  assert.deepEqual(s.player, { pos: [0, 0, 0], flames: T.flames, carried: 0 });
+  assert.deepEqual(s.wind, { active: false, dir_deg: null });
+  assert.deepEqual(s.player.pos, [0, 0, 0]);
+  assert.deepEqual(s.player.vel, [0, 0, 0]);
+  assert.equal(s.player.grounded, true);
+  assert.equal(s.player.invuln, false);
+  assert.equal(s.player.flames, T.flames);
+  assert.equal(s.player.carried, 0);
+  assert.equal(s.player.dash_cd_s, 0);
+  assert.equal(s.player.pulse_cd_s, 0);
+  assert.equal(s.player.charm_s, 0);
   assert.equal(s.lanterns.length, T.lantern_count_night1);
   s.lanterns.forEach((l, i) => {
     assert.equal(l.id, `L${i + 1}`);
-    assert.deepEqual(l.pos, lanternPos(i + 1));
+    // tọa độ ticket làm tròn 1 chữ số (23.8, 7.7, ...): cho sai số 0.06
+    for (let c = 0; c < 3; c++) assertClose(l.pos[c], lanternPos(i + 1)[c], 0.06, `L${i + 1}[${c}]:`);
     assert.equal(l.lit, false);
     assert.equal(l.deposited, 0);
   });
+  assert.deepEqual(s.shades, [], 'v1.1: Đêm 1 không có Bóng Mực sẵn, sinh từ tick 300');
+  assert.deepEqual(s.drifters, []);
 });
 
-test('[R1] snapshot có đủ trường, đúng thứ tự khóa, trạng thái hợp lệ', () => {
+test('[R1] night_start {night} phát với tick 0 ngay sau snapshot tick 0 (v1.1)', () => {
+  const res = runOk({ seed: 7, ticks: 5, scenario: scen() });
+  assert.equal(res.lines[0].type, 'snapshot');
+  const ev = res.lines[1];
+  assert.equal(ev.type, 'event');
+  assert.equal(ev.name, 'night_start');
+  assert.equal(ev.tick, 0);
+  assert.deepEqual(ev.data, { night: 1 });
+});
+
+test('[R1] snapshot có đủ trường v1.1, đúng thứ tự khóa, kiểu dữ liệu hợp lệ', () => {
   const res = runOk({ seed: 3, ticks: 30, snapshotEvery: 10 });
   assert.ok(res.snapshots.length >= 4);
   for (const s of res.snapshots) {
     assert.deepEqual(Object.keys(s), SNAPSHOT_KEYS);
-    assert.deepEqual(Object.keys(s.player), ['pos', 'flames', 'carried']);
+    assert.deepEqual(Object.keys(s.wind), ['active', 'dir_deg']);
+    assert.deepEqual(Object.keys(s.player), PLAYER_KEYS);
     assert.equal(s.player.pos.length, 3);
+    assert.equal(s.player.vel.length, 3);
+    assert.equal(typeof s.player.grounded, 'boolean');
+    assert.equal(typeof s.player.invuln, 'boolean');
+    for (const k of ['dash_cd_s', 'pulse_cd_s', 'charm_s']) assert.equal(typeof s.player[k], 'number');
     for (const l of s.lanterns) {
       assert.deepEqual(Object.keys(l), ['id', 'pos', 'lit', 'deposited']);
       assert.equal(l.pos.length, 3);
     }
     for (const sh of s.shades) {
       assert.deepEqual(Object.keys(sh), ['id', 'pos', 'state']);
-      assert.ok(['chase', 'stunned'].includes(sh.state), `state Bóng Mực lạ: ${sh.state}`);
+      assert.ok(['spawning', 'wander', 'chase', 'recoil', 'stunned'].includes(sh.state), `state Bóng Mực lạ: ${sh.state}`);
     }
-    for (const m of s.motes) assert.deepEqual(Object.keys(m), ['id', 'pos']);
-    assert.ok(['playing', 'won', 'lost'].includes(s.state));
+    for (const m of s.motes) {
+      assert.deepEqual(Object.keys(m), ['id', 'pos', 'kind', 'ttl_s']);
+      assert.ok(['random', 'dropped'].includes(m.kind));
+    }
+    assert.ok(Array.isArray(s.drifters));
+    assert.ok(Array.isArray(s.charms));
+    assert.ok(['playing', 'won', 'lost', 'paused'].includes(s.state));
     assert.equal(s.sim_tick, s.tick);
     assert.equal(s.motes_active, s.motes.length);
   }
 });
 
-test('[R1] thế giới mặc định (không scenario): 20 đom đóm, 2 Bóng Mực, trong đảo, cách đèn >= 3 m', () => {
-  // design mục 7: ban đầu 20 đom đóm, 2 Bóng Mực ngẫu nhiên trên vòng bán kính 35.
+test('[R1] thế giới mặc định Đêm 1 (không scenario): 20 đom đóm ở 20 điểm khác nhau trong 24 điểm sinh của ticket', () => {
+  // Ticket Phần 2: 8 điểm bán kính 12 m (mỗi 45 độ) + 16 điểm bán kính 33 m (mỗi 22.5 độ).
+  const pts = [...circlePts(0, 0, 12, 0, 45, 8), ...circlePts(0, 0, 33, 0, 22.5, 16)];
   const s = runOk({ seed: 11, ticks: 1 }).lines[0];
   assert.equal(s.motes_active, 20);
   assert.equal(s.motes.length, 20);
-  assert.equal(s.shades.length, 2);
+  const used = new Set();
   for (const m of s.motes) {
-    assert.equal(m.pos[1], 0, 'đom đóm nằm trên mặt đất');
-    assert.ok(Math.hypot(m.pos[0], m.pos[2]) <= ISLAND_RADIUS);
-    for (const l of s.lanterns) assert.ok(distXZ(m.pos, l.pos) >= 3 - 0.002, 'đom đóm quá gần đèn');
-  }
-  for (const sh of s.shades) {
-    assert.equal(sh.state, 'chase');
-    assert.equal(sh.pos[1], SHADE_Y);
-    assertClose(Math.hypot(sh.pos[0], sh.pos[2]), 35, 0.01, 'Bóng Mực sinh trên vòng bán kính 35:');
+    assert.equal(m.kind, 'random');
+    assert.equal(m.ttl_s, null);
+    const i = pts.findIndex((p) => distXZ(p, m.pos) < 0.01);
+    assert.ok(i >= 0, `đom đóm ${m.id} không nằm trên điểm sinh của ticket: ${m.pos}`);
+    assert.ok(!used.has(i), 'hai đom đóm cùng một điểm');
+    used.add(i);
+    assert.equal(m.pos[1], 0);
   }
   assert.deepEqual(s.motes.map((m) => m.id), Array.from({ length: 20 }, (_, i) => `M${i + 1}`));
-  assert.deepEqual(s.shades.map((x) => x.id), ['S1', 'S2']);
 });
 
 test('[R1] tọa độ và time_left_s làm tròn tối đa 3 chữ số, không có -0, JSON gọn', () => {
@@ -150,33 +184,38 @@ test('[R1] --snapshot-every K: snapshot đúng các tick chia hết cho K (kể 
 });
 
 test('[R1] snapshot tick 0 là trạng thái trước input; input tick k tác dụng lên trạng thái k+1', () => {
+  // v1.1: có gia tốc nên kiểm bằng vận tốc: vel z = 1 m/s sau bước đầu tiên có input (design Phase 2 mục 4).
   const inputs = frames({ tick: 5, move: [0, 1], cam_yaw_deg: 0 });
   const res = runOk({ ticks: 8, snapshotEvery: 1, scenario: scen(), inputs });
-  for (let k = 0; k <= 5; k++) assert.deepEqual(snapAt(res, k).player.pos, [0, 0, 0], `tick ${k}`);
-  assertClose(snapAt(res, 6).player.pos[2], T.player_speed / 60, 0.0006, 'tick 6');
-  assertClose(snapAt(res, 8).player.pos[2], (3 * T.player_speed) / 60, 0.0006, 'tick 8');
+  for (let k = 0; k <= 5; k++) {
+    assert.deepEqual(snapAt(res, k).player.pos, [0, 0, 0], `tick ${k}`);
+    assert.deepEqual(snapAt(res, k).player.vel, [0, 0, 0], `tick ${k}`);
+  }
+  assert.ok(snapAt(res, 6).player.vel[2] > 0, 'tick 6: input tick 5 đã tác dụng');
+  assert.ok(snapAt(res, 8).player.pos[2] > snapAt(res, 6).player.pos[2]);
 });
 
-test('[R1] input tick 0 đã tác dụng ở bước đầu (snapshot tick 0 vẫn ở gốc, tick 1 đã đi)', () => {
+test('[R1] input tick 0 đã tác dụng ở bước đầu (snapshot tick 0 đứng yên, tick 1 đã có vận tốc)', () => {
   const inputs = frames({ tick: 0, move: [0, 1] });
   const res = runOk({ ticks: 2, snapshotEvery: 1, scenario: scen(), inputs });
   assert.deepEqual(snapAt(res, 0).player.pos, [0, 0, 0]);
-  assertClose(snapAt(res, 1).player.pos[2], T.player_speed / 60, 0.0006);
+  assert.ok(snapAt(res, 1).player.vel[2] > 0);
 });
 
 test('[R1] sự kiện mang tick = k+1 và đứng trước snapshot cùng tick', () => {
   // Đom đóm ngay tại chỗ người chơi: nhặt ở bước 0 -> sự kiện tick 1.
   const sc = scen({ motes: [[0, 0, 0]] });
   const res = runOk({ ticks: 3, snapshotEvery: 1, scenario: sc });
-  const idx = res.lines.findIndex((l) => l.type === 'event');
+  const idx = res.lines.findIndex((l) => l.type === 'event' && l.name === 'mote_picked');
   const ev = res.lines[idx];
   assert.equal(ev.name, 'mote_picked');
   assert.equal(ev.tick, 1);
   assert.deepEqual(ev.data, { carried: 1 });
   assert.deepEqual(Object.keys(ev), ['type', 'tick', 'name', 'data']);
-  // thứ tự: snapshot0, event(tick1), snapshot1, ...
-  assert.equal(res.lines[idx - 1].type, 'snapshot');
-  assert.equal(res.lines[idx - 1].tick, 0);
+  // thứ tự (v1.1): snapshot0, night_start(tick 0), event(tick1), snapshot1, ...
+  assert.equal(res.lines[idx - 1].name, 'night_start');
+  assert.equal(res.lines[idx - 2].type, 'snapshot');
+  assert.equal(res.lines[idx - 2].tick, 0);
   assert.equal(res.lines[idx + 1].type, 'snapshot');
   assert.equal(res.lines[idx + 1].tick, 1);
   assert.equal(res.lines[idx + 1].player.carried, 1);
@@ -193,7 +232,7 @@ test('[R1] frame chỉ đổi trường có mặt, trường vắng giữ giá t
   // move đặt ở tick 0, frame tick 30 chỉ đặt cam_yaw_deg=0 -> move vẫn là [0,1].
   const inputs = frames({ tick: 0, move: [0, 1] }, { tick: 30, interact: false }, { tick: 45, cam_yaw_deg: 0 });
   const res = runOk({ ticks: 60, snapshotEvery: 60, scenario: scen(), inputs });
-  assertClose(snapAt(res, 60).player.pos[2], T.player_speed, 0.002);
+  assertRunDistance(snapAt(res, 60).player.pos[2], 60);
 });
 
 test('[R1] không có file inputs: người chơi đứng yên', () => {
@@ -240,6 +279,8 @@ const BAD_INPUTS = {
   'jump là số': frames({ tick: 0, jump: 1 }),
   'interact là chuỗi': frames({ tick: 0, interact: 'true' }),
   'pulse là null': frames({ tick: 0, pulse: null }),
+  'dash là số': frames({ tick: 0, dash: 1 }),
+  'pause là chuỗi': frames({ tick: 0, pause: 'true' }),
   'thiếu frames': {},
   'frames không phải mảng': { frames: {} },
   'frame là số': { frames: [5] },
@@ -306,10 +347,12 @@ test('[R1] thiếu --out -> mã thoát khác 0 (design: 1), có lỗi ở stderr
   assert.ok(res.stderr.trim().length > 0);
 });
 
-test('[R1] thiếu --ticks / --seed, --night khác 1, tham số lạ -> mã thoát 1', () => {
+test('[R1] thiếu --ticks / --seed, --night ngoài 1..3, tham số lạ -> mã thoát 1; --night 1,2,3 hợp lệ', () => {
   assert.equal(run({ ticks: null }).status, 1, 'thiếu --ticks');
   assert.equal(run({ ticks: 10, seed: null }).status, 1, 'thiếu --seed');
-  assert.equal(run({ ticks: 10, night: 2 }).status, 1, '--night 2');
+  assert.equal(run({ ticks: 10, night: 4 }).status, 1, '--night 4');
+  assert.equal(run({ ticks: 10, night: 0 }).status, 1, '--night 0');
+  for (const n of [1, 2, 3]) assert.equal(run({ ticks: 10, night: n }).status, 0, `--night ${n}`);
   assert.equal(run({ ticks: 10, extraArgs: ['--bogus', '1'] }).status, 1, 'tham số lạ');
 });
 

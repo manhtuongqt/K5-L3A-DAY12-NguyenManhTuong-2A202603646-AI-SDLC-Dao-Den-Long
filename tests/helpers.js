@@ -24,13 +24,27 @@ export const ticksOf = (s) => Math.round(s * 60);
 export const perTick = (v) => v / 60;
 export const round3 = (v) => Math.round(v * 1000) / 1000;
 
-/** Vị trí đèn Lk theo design mục 2: góc 72*(k-1) độ từ +Z quay về +X, bán kính 25. */
-export function lanternPos(k) {
-  const a = ((72 * (k - 1)) * Math.PI) / 180;
-  return [round3(25 * Math.sin(a)), 0, round3(25 * Math.cos(a))];
+// Bản đồ chuẩn: tọa độ chép từ docs/notes/phase-2-ticket.md (Phần 2), không lấy từ code.
+export const LANTERNS = {
+  1: [[0, 0, 25], [23.8, 0, 7.7], [14.7, 0, -20.2], [-14.7, 0, -20.2], [-23.8, 0, 7.7]],
+  2: [[0, 0, 20], [17, 0, -10], [-17, 0, -10], [70, 0, 20], [87, 0, -10], [53, 0, -10]],
+  3: [[0, 6, 6], [18, 3, 10], [-18, 3, 10], [35, 0, -10], [-35, 0, -10], [20, 0, -35], [-20, 0, -35]],
+};
+/** Điểm xuất phát (Đêm 3 theo phase-2-design mục 9). */
+export const START = { 1: [0, 0, 0], 2: [0, 0, 0], 3: [0, 0, -25] };
+export const DURATION_S = { 1: T.night1_duration_s, 2: T.night2_duration_s, 3: T.night3_duration_s };
+export const lanternPos = (k, night = 1) => [...LANTERNS[night][k - 1]];
+
+/** Điểm trên đường tròn: (cx + r cos a, y, cz + r sin a), a tính từ +X về +Z (design mục 2). */
+export function circlePts(cx, cz, r, startDeg, stepDeg, count, y = 0) {
+  return Array.from({ length: count }, (_, i) => {
+    const a = ((startDeg + stepDeg * i) * Math.PI) / 180;
+    return [cx + r * Math.cos(a), y, cz + r * Math.sin(a)];
+  });
 }
 
 export const distXZ = (a, b) => Math.hypot(a[0] - b[0], a[2] - b[2]);
+export const dist3 = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 
 // ---------------------------------------------------------------------------
 // Chạy CLI
@@ -109,7 +123,9 @@ export function run(opts = {}) {
       return cache;
     },
     get snapshots() { return this.lines.filter((l) => l.type === 'snapshot'); },
-    get events() { return this.lines.filter((l) => l.type === 'event'); },
+    // events: mọi sự kiện TRỪ night_start (phát ở tick 0 ngay sau snapshot 0, v1.1). allEvents: tất cả.
+    get events() { return this.lines.filter((l) => l.type === 'event' && l.name !== 'night_start'); },
+    get allEvents() { return this.lines.filter((l) => l.type === 'event'); },
     get end() { return this.lines[this.lines.length - 1]; },
   };
   return res;
@@ -132,7 +148,7 @@ export const snapAt = (res, tick) => {
 // ---------------------------------------------------------------------------
 // Dựng scenario
 
-/** Scenario "sạch": không ngẫu nhiên, không đom đóm, không Bóng Mực, người chơi ở gốc. */
+/** Scenario "sạch": không ngẫu nhiên, không đom đóm, không Bóng Mực/Gió Lạc, không gió, người chơi ở gốc. */
 export function scen(over = {}) {
   const { player, ...rest } = over;
   return {
@@ -145,7 +161,24 @@ export function scen(over = {}) {
   };
 }
 
+/** Như scen() nhưng điểm đứng mặc định là điểm xuất phát của Đêm `night`, và tắt Gió Lạc/gió. */
+export function scenN(night, over = {}) {
+  const sc = scen({ random_drifters: false, wind_enabled: false, ...over });
+  if (!over.player || !over.player.pos) sc.player.pos = [...START[night]];
+  return sc;
+}
+
 export const frames = (...f) => ({ frames: f });
+
+/**
+ * Quãng đường đi được sau `ticks` tick giữ phím từ đứng yên: không thể vượt speed*ticks/60,
+ * và thua tốc độ tối đa không quá 0.1 s * speed (tăng tốc <= 0.1 s theo ticket).
+ */
+export function assertRunDistance(actual, ticks, speed = T.player_speed, msg = '') {
+  const max = (speed * ticks) / 60;
+  assert.ok(actual <= max + 0.003 && actual >= max - speed * 0.1 - 0.003,
+    `${msg} quãng đường ${actual} ngoài [${max - speed * 0.1}, ${max}]`);
+}
 
 export function assertClose(actual, expected, tol, msg = '') {
   assert.ok(Math.abs(actual - expected) <= tol, `${msg} thực tế ${actual}, mong đợi ${expected} ± ${tol}`);
@@ -164,7 +197,7 @@ export function assertScoreConsistent(res, { t0 = T.night1_duration_s, flames0 =
   let flames = flames0;
   for (const l of res.lines) {
     if (l.type === 'event') {
-      if (l.name === 'mote_picked') score += S.per_mote;
+      if (l.name === 'deposit') score += S.per_mote * l.data.amount; // v1.1: điểm khi NẠP, không khi nhặt
       else if (l.name === 'lantern_lit') score += S.per_lantern;
       else if (l.name === 'pulse') score += S.per_stun * l.data.stunned_ids.length;
       else if (l.name === 'player_hit') flames = l.data.flames;
@@ -178,4 +211,23 @@ export function assertScoreConsistent(res, { t0 = T.night1_duration_s, flames0 =
     }
   }
   return score;
+}
+
+/** Inputs "đi dạo" tất định: đổi move/yaw mỗi 40 tick, pulse/interact/dash xen kẽ. Tick tăng nghiêm ngặt. */
+export function walkInputs(total, { dash = true } = {}) {
+  const all = [];
+  for (let k = 0; k < total; k += 40) {
+    all.push({ tick: k, move: [Math.sin(k / 97), Math.cos(k / 61)], cam_yaw_deg: (k / 7) % 360 });
+  }
+  for (let k = 20; k < total; k += 200) all.push({ tick: k, pulse: true }, { tick: k + 1, pulse: false });
+  for (let k = 120; k < total; k += 300) all.push({ tick: k, interact: true }, { tick: k + 1, interact: false });
+  if (dash) for (let k = 70; k < total; k += 250) all.push({ tick: k, dash: true }, { tick: k + 1, dash: false });
+  for (let k = 90; k < total; k += 330) all.push({ tick: k, jump: true }, { tick: k + 1, jump: false });
+  all.sort((a, b) => a.tick - b.tick);
+  const merged = [];
+  for (const fr of all) {
+    const last = merged[merged.length - 1];
+    if (last && last.tick === fr.tick) Object.assign(last, fr); else merged.push({ ...fr });
+  }
+  return { frames: merged };
 }
