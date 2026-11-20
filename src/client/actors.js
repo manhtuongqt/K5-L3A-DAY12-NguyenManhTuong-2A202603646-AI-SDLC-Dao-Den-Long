@@ -241,7 +241,6 @@ export function createPlayerView(root, glowTex) {
 
 // ---------------------------------------------------------------- Bóng Mực
 const SHADE_COLOR = new THREE.Color(PAL.shade);
-const SHADE_RIM = new THREE.Color(PAL.shadeRim);
 const STUN_COLOR = new THREE.Color(PAL.shadeStun);
 
 export function createShadeView(root, glowTex, id, initialState) {
@@ -249,7 +248,7 @@ export function createShadeView(root, glowTex, id, initialState) {
   const inner = new THREE.Group();
   group.add(inner);
   const mat = new THREE.MeshStandardMaterial({
-    color: SHADE_COLOR, emissive: SHADE_RIM, emissiveIntensity: 0.22, roughness: 0.75,
+    color: SHADE_COLOR, emissive: PAL.shadeRim, emissiveIntensity: 0.22, roughness: 0.75,
     transparent: true, opacity: 0.97,
   });
   // viền #7A3CFF: vỏ lớn hơn một chút, chỉ thấy mặt trong
@@ -274,7 +273,7 @@ export function createShadeView(root, glowTex, id, initialState) {
   top.position.set(0, 0.8, -0.05);
   inner.add(top);
 
-  const eyeMat = new THREE.MeshBasicMaterial({ color: 0xe9deff });
+  const eyeMat = new THREE.MeshBasicMaterial({ color: PAL.shadeRim });
   const eyeGeo = new THREE.SphereGeometry(0.14, 10, 8);
   const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
   const eyeR = new THREE.Mesh(eyeGeo, eyeMat);
@@ -300,6 +299,17 @@ export function createShadeView(root, glowTex, id, initialState) {
   holder.add(shadow);
   root.add(group, holder);
 
+  // Vệt sáng nhỏ bay từ đèn vào Bóng đang hút dầu, không thêm nguồn sáng.
+  const drainGeo = new THREE.BufferGeometry();
+  const drainPositions = new Float32Array(8 * 3);
+  drainGeo.setAttribute('position', new THREE.BufferAttribute(drainPositions, 3).setUsage(THREE.DynamicDrawUsage));
+  const drainMat = new THREE.PointsMaterial({ map: glowTex, color: PAL.lampCore,
+    size: 0.3, transparent: true, opacity: 0.6, depthWrite: false, blending: THREE.AdditiveBlending });
+  const drainStream = new THREE.Points(drainGeo, drainMat);
+  drainStream.frustumCulled = false;
+  drainStream.visible = false;
+  root.add(drainStream);
+
   const seed = (id.charCodeAt(id.length - 1) || 1) * 1.7;
   let stun = 0;
   let spawn = initialState === 'spawning' ? 0 : 1;
@@ -308,11 +318,31 @@ export function createShadeView(root, glowTex, id, initialState) {
   return {
     group,
     dispose() {
-      root.remove(group, holder);
-      mat.dispose(); rimMat.dispose(); aura.material.dispose();
+      root.remove(group, holder, drainStream);
+      mat.dispose(); rimMat.dispose(); aura.material.dispose(); eyeMat.dispose();
+      drainGeo.dispose(); drainMat.dispose();
     },
-    // state: spawning | wander | chase | recoil | stunned (Phase 1 cũ: chase | stunned)
-    update(pos, state, groundY, faceAngle, t, dt) {
+    // state: spawning | wander | chase | recoil | stunned | drain
+    update(pos, state, groundY, faceAngle, t, dt, distinguishableColors = false, drainPos = null) {
+      const rimColor = distinguishableColors ? PAL.shadeAccessible : PAL.shadeRim;
+      if (rimMat.color.getHex() !== rimColor) {
+        rimMat.color.setHex(rimColor);
+        eyeMat.color.setHex(rimColor);
+        mat.emissive.setHex(rimColor);
+        aura.material.color.setHex(rimColor);
+      }
+      drainStream.visible = state === 'drain' && !!drainPos;
+      if (drainStream.visible) {
+        for (let i = 0; i < drainPositions.length / 3; i++) {
+          const k = (t * 0.75 + i / 8) % 1;
+          const arc = Math.sin(k * Math.PI);
+          drainPositions[i * 3] = drainPos[0] + (pos[0] - drainPos[0]) * k + Math.sin(t * 3 + i) * 0.12 * arc;
+          drainPositions[i * 3 + 1] = drainPos[1] + 3.75 + (pos[1] - drainPos[1] - 3.75) * k + arc * 0.3;
+          drainPositions[i * 3 + 2] = drainPos[2] + (pos[2] - drainPos[2]) * k + Math.cos(t * 3 + i) * 0.12 * arc;
+        }
+        drainGeo.attributes.position.needsUpdate = true;
+        drainMat.opacity = 0.45 + 0.15 * Math.sin(t * Math.PI * 2);
+      }
       const stunned = state === 'stunned';
       stun += ((stunned ? 1 : 0) - stun) * Math.min(1, dt * 8);
       recoil += ((state === 'recoil' ? 1 : 0) - recoil) * Math.min(1, dt * 10);

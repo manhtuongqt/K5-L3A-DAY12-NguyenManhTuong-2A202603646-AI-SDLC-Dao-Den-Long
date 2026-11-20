@@ -2,7 +2,7 @@
 export const NIGHTS = {
   1: {
     name: 'Đảo Bến',
-    line: 'Mây ơi, sương đen đã nuốt hết đèn của Đảo Bến rồi. Nhặt đom đóm, mang về thắp lại năm ngọn đèn trước khi trời sáng nhé. Gặp Bóng Mực thì tỏa sáng mà xua chúng đi.',
+    line: 'Mây ơi, nhặt đom đóm để thắp đèn và châm dầu, giữ đảo sáng tới bình minh nhé. Đèn yếu sẽ mất vùng an toàn và bị Bóng Mực hút dầu. Gặp chúng thì tỏa sáng mà xua đi.',
   },
   2: {
     name: 'Đảo Cau',
@@ -15,8 +15,8 @@ export const NIGHTS = {
 };
 
 const REASONS = {
-  all_lit: ['Đêm hoàn thành!', 'Mọi ngọn đèn đã sáng. Ông Đăng mỉm cười từ xa.'],
-  dawn: ['Bình minh đã đến', 'Trời sáng trước khi con thắp hết các đèn. Thử lại nhé, Mây.'],
+  dawn_survived: ['Giữ đảo sáng tới bình minh', 'Mây còn Ngọn Lửa và đủ đèn đang sáng. Ông Đăng mỉm cười từ xa.'],
+  dawn: ['Bình minh đến nhưng đảo còn tối', 'Số đèn đang sáng chưa đủ để giữ đảo qua Đêm. Nhớ châm dầu và thử lại nhé, Mây.'],
   no_flames: ['Hết Ngọn Lửa rồi', 'Ngọn lửa của Mây đã tắt dưới màn sương. Đứng dậy thử lại nào.'],
 };
 
@@ -27,13 +27,13 @@ const KEYS_HTML = `
   <div class="keys">
     <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> hoặc mũi tên <span>di chuyển</span></div>
     <div><kbd>Space</kbd> <span>nhảy</span> · <kbd>Shift</kbd> <span>lướt</span></div>
-    <div><kbd>E</kbd> <span>nạp ánh sáng vào đèn gần nhất</span></div>
+    <div><kbd>E</kbd> <span>thắp đèn hoặc châm dầu cho đèn gần nhất</span></div>
     <div><kbd>F</kbd> hoặc <kbd>chuột phải</kbd> <span>tỏa sáng (tốn 3 đom đóm)</span></div>
     <div>Kéo <kbd>chuột trái</kbd> hoặc <kbd>Q</kbd> <kbd>C</kbd> <span>xoay camera</span></div>
     <div><kbd>Esc</kbd> hoặc <kbd>P</kbd> <span>tạm dừng</span> · <kbd>R</kbd> <span>chơi lại Đêm</span></div>
   </div>`;
 
-export function createScreens(el, onAction, getSettings, onSetting) {
+export function createScreens(el, onAction, getSettings, onSetting, tuning) {
   let current = null;
 
   const render = {
@@ -41,7 +41,7 @@ export function createScreens(el, onAction, getSettings, onSetting) {
       <div class="card">
         <div class="eyebrow">Mây và những ngọn đèn</div>
         <h1>Đảo Đèn Lồng</h1>
-        <p class="tagline">Sương đen đã nuốt hết ánh sáng của đảo. Hãy thắp lại từng ngọn đèn.</p>
+        <p class="tagline">Thắp đèn, châm dầu và giữ đảo sáng tới bình minh.</p>
         <div class="menu">
           ${btn('play', 'Chơi từ Đêm 1', 'primary')}
           <div class="nights">
@@ -61,6 +61,7 @@ export function createScreens(el, onAction, getSettings, onSetting) {
           <div class="face">Đ</div>
           <div><div class="who">Ông Đăng, người giữ đèn già</div><div class="say">“${esc(NIGHTS[d.night].line)}”</div></div>
         </div>
+        <p class="story">Sống tới bình minh với ít nhất ${Math.ceil(tuning.win_ratio * d.nLan)}/${d.nLan} đèn đang sáng. Đèn hao dầu liên tục; dùng đom đóm để châm dầu.</p>
         ${d.night === 1 ? KEYS_HTML : '<p class="hint">Lướt bằng Shift, tạm dừng bằng Esc.</p>'}
         ${d.total > 0 ? `<p class="hint">Tổng điểm đã tích lũy: <b style="color:var(--gold)">${d.total}</b></p>` : ''}
         <div class="menu">${btn('begin', 'Bắt đầu Đêm ' + d.night + ' (Enter)', 'primary')}${btn('menu', 'Về menu', 'small')}</div>
@@ -91,6 +92,10 @@ export function createScreens(el, onAction, getSettings, onSetting) {
           <label><span>Độ nhạy chuột</span><b id="sensVal">${s.sensitivity.toFixed(1)}×</b></label>
           <input type="range" min="30" max="250" step="5" value="${Math.round(s.sensitivity * 100)}" data-setting="sensitivity" />
         </div>
+        <div class="setting">
+          <label><span>Bảng màu dễ phân biệt</span><input type="checkbox" data-setting="distinguishableColors" ${s.distinguishableColors ? 'checked' : ''} /></label>
+          <p class="hint">Viền và mắt Bóng Mực màu xanh lam; cảnh báo trắng kèm ⚠.</p>
+        </div>
         <p class="hint">Cài đặt được lưu cho lần mở game sau.</p>
         <div class="menu">${btn('back', 'Quay lại (Esc)', 'primary')}</div>
       </div>`;
@@ -119,7 +124,7 @@ export function createScreens(el, onAction, getSettings, onSetting) {
         <p class="story">${text}</p>
         <div class="endstats">
           <div><span class="lbl">Điểm</span><b>${d.score}</b></div>
-          <div><span class="lbl">Đèn đã thắp</span><b>${d.lit}/${d.nLan}</b></div>
+          <div><span class="lbl">Đèn đang sáng</span><b>${d.lit}/${d.nLan}</b></div>
         </div>
         <div class="menu">${btn('again', 'Chơi lại Đêm ' + d.night + ' (Enter / R)', 'primary')}${btn('menu', 'Về menu', 'small')}</div>
       </div>`;
@@ -129,7 +134,7 @@ export function createScreens(el, onAction, getSettings, onSetting) {
       <div class="card">
         <div class="eyebrow">Ba Đêm đã qua</div>
         <h1 class="dawn">Bình Minh</h1>
-        <p class="story">Ánh nắng đầu tiên chạm vào ba hòn đảo. Mọi ngọn đèn đã sáng, và đêm dài đã khép lại. Cảm ơn con, Mây.</p>
+        <p class="story">Giữ đảo sáng tới bình minh. Ánh nắng đầu tiên chạm vào ba hòn đảo. Mây đã giữ đủ đèn sáng qua ba Đêm. Cảm ơn con, Mây.</p>
         <div class="elder">
           <div class="face">Đ</div>
           <div><div class="who">Ông Đăng</div><div class="say">“Con là người giữ đèn giỏi nhất mà ông từng gặp.”</div></div>
@@ -155,9 +160,11 @@ export function createScreens(el, onAction, getSettings, onSetting) {
     if (key === 'volume') {
       onSetting('volume', v / 100);
       const n = el.querySelector('#volVal'); if (n) n.textContent = `${v}%`;
-    } else {
+    } else if (key === 'sensitivity') {
       onSetting('sensitivity', v / 100);
       const n = el.querySelector('#sensVal'); if (n) n.textContent = `${(v / 100).toFixed(1)}×`;
+    } else if (key === 'distinguishableColors') {
+      onSetting(key, e.target.checked);
     }
   });
 

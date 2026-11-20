@@ -30,6 +30,7 @@ const canvas = document.getElementById('view');
 const hud = createHud(tuning);
 const params = new URLSearchParams(window.location.search);
 const settings = loadSettings();
+document.documentElement.dataset.distinguishableColors = String(settings.distinguishableColors);
 const getSettings = () => settings;
 const audio = createAudio(getSettings);
 
@@ -54,7 +55,7 @@ try {
 } catch (err) {
   console.error(err);
   document.body.insertAdjacentHTML('beforeend',
-    `<div style="position:fixed;inset:0;display:grid;place-items:center;color:#FF5A5F;font:16px sans-serif;background:#0E1430">Không khởi tạo được WebGL: ${err && err.message ? err.message : err}</div>`);
+    `<div class="webgl-error">Không khởi tạo được WebGL: ${err && err.message ? err.message : err}</div>`);
   throw err;
 }
 const { root, camera } = stage;
@@ -66,6 +67,7 @@ const moteViews = new Map();
 const drifterViews = new Map();
 const charmViews = new Map();
 const drifterHeading = new Map();
+const drainTargets = new Map();
 
 // ---------------------------------------------------------------- Trạng thái
 let g = null;
@@ -103,7 +105,8 @@ const screens = createScreens(document.getElementById('screen'), (a) => onAction
   settings[k] = v;
   saveSettings(settings);
   if (k === 'volume') audio.applyVolume();
-});
+  if (k === 'distinguishableColors') document.documentElement.dataset.distinguishableColors = String(v);
+}, tuning);
 
 function unlockAudio() {
   if (!audio.ready) audio.init();
@@ -111,7 +114,7 @@ function unlockAudio() {
 }
 window.addEventListener('pointerdown', unlockAudio, { capture: true });
 
-// Sao chép snapshot (v1.1) để nội suy an toàn; trường thiếu có giá trị mặc định cho sim cũ.
+// Sao chép snapshot v1.2 để nội suy an toàn.
 function copySnap(s) {
   const p = s.player;
   return {
@@ -129,11 +132,16 @@ function copySnap(s) {
       invuln: !!p.invuln,
       flames: p.flames,
       carried: p.carried,
+      capacity: p.capacity ?? tuning.carry_capacity,
       dash_cd_s: p.dash_cd_s || 0,
       pulse_cd_s: p.pulse_cd_s || 0,
       charm_s: p.charm_s || 0,
     },
-    lanterns: s.lanterns.map((l) => ({ id: l.id, pos: [...l.pos], lit: l.lit, deposited: l.deposited })),
+    lanterns: s.lanterns.map((l) => ({
+      id: l.id, pos: [...l.pos], lit: l.lit, deposited: l.deposited,
+      fuel: l.lit ? (l.fuel ?? tuning.fuel_max) : 0,
+      ever_lit: l.ever_lit ?? l.lit, relit_count: l.relit_count ?? 0,
+    })),
     shades: s.shades.map((e) => ({ id: e.id, pos: [...e.pos], state: e.state })),
     motes: (s.motes || []).map((m) => ({ id: m.id, pos: [...m.pos], kind: m.kind || 'random', ttl_s: m.ttl_s ?? null })),
     drifters: (s.drifters || []).map((d) => ({ id: d.id, pos: [...d.pos], state: d.state, stolen: d.stolen || 0 })),
@@ -147,6 +155,7 @@ function clearViews() {
     pool.clear();
   }
   drifterHeading.clear();
+  drainTargets.clear();
 }
 
 function newGame(n, scenario) {
@@ -185,7 +194,7 @@ function showIntro(n) {
   newGame(n);
   mode = 'intro';
   hud.showHud(false);
-  screens.show('intro', { night: n, total: runTotal() });
+  screens.show('intro', { night: n, total: runTotal(), nLan: cur.lanterns.length });
   updateDuck();
 }
 
@@ -286,16 +295,31 @@ function handleEvents(events) {
         const l = lanternById(d.lantern_id);
         if (l) fx.deposit(l.pos);
         audio.sfx('deposit');
-        hud.toast(`Nạp ${d.amount} đom đóm vào ${d.lantern_id} (${d.deposited}/${tuning.lantern_cost})`);
+        const cost = prev.lanterns.find((lamp) => lamp.id === d.lantern_id)?.ever_lit ?
+          tuning.relight_cost : tuning.lantern_cost;
+        hud.toast(`Nạp ${d.amount} đom đóm vào ${d.lantern_id} (${d.deposited}/${cost})`);
         break;
       }
       case 'lantern_lit': {
         const l = lanternById(d.lantern_id);
         if (l) fx.lanternLit(l.pos, tuning.safe_radius);
         audio.sfx('lantern');
-        hud.toast(`Đèn ${d.lantern_id} đã sáng!`);
+        hud.toast(`Đèn ${d.lantern_id} ${d.relight ? 'đã được thắp lại' : 'đã sáng'}!`);
         break;
       }
+      case 'refuel': {
+        const l = lanternById(d.lantern_id);
+        if (l) fx.deposit(l.pos);
+        audio.sfx('refuel');
+        hud.toast(`Châm dầu ${d.lantern_id}: ${d.fuel}/${tuning.fuel_max} (dùng ${d.amount} đom đóm)`);
+        break;
+      }
+      case 'fuel_drain':
+        drainTargets.set(d.shade_id, d.lantern_id);
+        break;
+      case 'lantern_out':
+        audio.sfx('lanternOut'); hud.toast(`Đèn ${d.lantern_id} hết dầu! Mang đom đóm tới thắp lại`, 'bad');
+        break;
       case 'pulse':
         fx.pulse(cur.player.pos); audio.sfx('pulse');
         if (d.stunned_ids && d.stunned_ids.length) hud.toast(`Bóng Mực choáng váng x${d.stunned_ids.length}!`);
@@ -433,12 +457,29 @@ function render(alpha, dt, t) {
 
   // Bóng Mực
   syncPool(shadeViews, cur.shades, (s) => createShadeView(root, glowTex, s.id, s.state), (v) => v.dispose());
+  for (const id of drainTargets.keys()) {
+    if (!cur.shades.some((s) => s.id === id && s.state === 'drain')) drainTargets.delete(id);
+  }
   const prevShades = new Map(prev.shades.map((s) => [s.id, s]));
   for (const s of cur.shades) {
     const p0 = prevShades.get(s.id);
     const pos = p0 ? lerpPos(p0.pos, s.pos, alpha) : [...s.pos];
-    const face = Math.atan2(pPos[0] - pos[0], pPos[2] - pos[2]);
-    shadeViews.get(s.id).update(pos, s.state, pos[1] - 1.0, face, t, dt);
+    // Ưu tiên mục tiêu từ sự kiện; trước sự kiện đầu tiên, suy ra đèn yếu gần nhất để vẽ.
+    let drainTarget = null;
+    if (s.state === 'drain') {
+      drainTarget = lanternById(drainTargets.get(s.id));
+      if (!drainTarget?.lit || drainTarget.fuel >= tuning.low_fuel_threshold) drainTarget = null;
+      let best = Infinity;
+      for (const l of drainTarget ? [] : cur.lanterns) {
+        if (!l.lit || l.fuel >= tuning.low_fuel_threshold) continue;
+        const d = Math.hypot(l.pos[0] - s.pos[0], l.pos[2] - s.pos[2]);
+        if (d < best || (d === best && l.id < drainTarget.id)) { best = d; drainTarget = l; }
+      }
+    }
+    const facing = drainTarget ? drainTarget.pos : pPos;
+    const face = Math.atan2(facing[0] - pos[0], facing[2] - pos[2]);
+    shadeViews.get(s.id).update(pos, s.state, pos[1] - 1.0, face, t, dt,
+      settings.distinguishableColors, drainTarget?.pos);
   }
 
   // đom đóm (kể cả đom đóm rơi)
@@ -507,13 +548,20 @@ function hudValues() {
   const p = cur.player;
   let prompt = '';
   let nearest = null; let nd = Infinity;
+  let interact = null; let interactDist = Infinity;
   for (const l of cur.lanterns) {
-    if (l.lit) continue;
     const d = Math.hypot(l.pos[0] - p.pos[0], l.pos[2] - p.pos[2]);
-    if (d < nd) { nd = d; nearest = l; }
-    if (d <= tuning.interact_radius && Math.abs(l.pos[1] - p.pos[1]) <= 1.5 && !prompt) {
-      prompt = `E — Nạp ánh sáng (${l.deposited}/${tuning.lantern_cost})`;
+    if (!l.lit && (d < nd || (d === nd && l.id < nearest.id))) { nd = d; nearest = l; }
+    if (l.lit && l.fuel >= tuning.fuel_max) continue;
+    if (d <= tuning.interact_radius && Math.abs(l.pos[1] - p.pos[1]) <= 1.5 &&
+      (d < interactDist || (d === interactDist && l.id < interact.id))) {
+      interactDist = d; interact = l;
     }
+  }
+  if (interact) {
+    const cost = interact.ever_lit ? tuning.relight_cost : tuning.lantern_cost;
+    prompt = interact.lit ? `E — Châm dầu (${interact.fuel}/${tuning.fuel_max})` :
+      `E — ${interact.ever_lit ? 'Thắp lại' : 'Nạp ánh sáng'} (${interact.deposited}/${cost})`;
   }
   // mũi tên chỉ đèn chưa sáng gần nhất khi nó ở ngoài màn hình
   let arrow = null;
@@ -570,7 +618,7 @@ function frame(now) {
       acc -= STEP;
       n++;
       if (g.ended) {
-        if (!endInfo) endInfo = { result: g.state, reason: g.state === 'won' ? 'all_lit' : (cur.player.flames <= 0 ? 'no_flames' : 'dawn') };
+        if (!endInfo) endInfo = { result: g.state, reason: g.state === 'won' ? 'dawn_survived' : (cur.player.flames <= 0 ? 'no_flames' : 'dawn') };
         mode = 'ended'; endTimer = 1.3; prev = cur; acc = 0;
         screens.hide();
         break;

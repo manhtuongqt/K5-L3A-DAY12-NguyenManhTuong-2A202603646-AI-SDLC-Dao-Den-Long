@@ -104,6 +104,14 @@ export function createAudio(getSettings) {
     click: () => tone({ type: 'triangle', f0: 660, f1: 880, dur: 0.07, gain: 0.12 }),
     pickup: () => { tone({ f0: 880, f1: 1320, dur: 0.09, gain: 0.16 }); tone({ f0: 1760, dur: 0.1, gain: 0.06, at: 0.04 }); },
     deposit: () => { tone({ type: 'triangle', f0: 523, dur: 0.12, gain: 0.14 }); tone({ type: 'triangle', f0: 659, dur: 0.14, gain: 0.12, at: 0.07 }); },
+    refuel: () => {
+      noise({ dur: 0.35, type: 'bandpass', f0: 700, f1: 1400, q: 2, gain: 0.09 });
+      [660, 880, 1100].forEach((f, i) => tone({ type: 'triangle', f0: f, dur: 0.2, gain: 0.1, at: i * 0.07 }));
+    },
+    lanternOut: () => {
+      noise({ dur: 0.45, type: 'lowpass', f0: 1800, f1: 160, gain: 0.16 });
+      tone({ type: 'triangle', f0: 440, f1: 110, dur: 0.5, gain: 0.12 });
+    },
     lantern: () => {
       [523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((f, i) => tone({ type: 'triangle', f0: f, dur: 0.9, gain: 0.15, at: i * 0.09, attack: 0.02 }));
       tone({ type: 'sine', f0: 130.8, dur: 1.2, gain: 0.2 });

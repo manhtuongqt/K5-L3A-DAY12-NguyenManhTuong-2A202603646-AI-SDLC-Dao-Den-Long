@@ -6,7 +6,7 @@ export function createHud(tuning) {
   const $ = (id) => document.getElementById(id);
   const el = {
     hud: $('hud'), flames: $('flames'), time: $('time'), night: $('nightLabel'),
-    lit: $('lit'), pips: $('lanternPips'), score: $('score'),
+    lit: $('lit'), goal: $('lanternGoal'), pips: $('lanternPips'), score: $('score'),
     toasts: $('toasts'), prompt: $('prompt'), windWarn: $('windWarn'),
     carried: $('carried'), moteBar: $('moteBar'),
     skillDash: $('skillDash'), skillPulse: $('skillPulse'), skillCharm: $('skillCharm'),
@@ -23,9 +23,14 @@ export function createHud(tuning) {
 
   el.flames.innerHTML = FLAME_SVG.repeat(tuning.flames);
   const flameNodes = [...el.flames.querySelectorAll('.flame')];
-  const cap = tuning.carry_capacity;
-  el.moteBar.innerHTML = '<span class="cell"></span>'.repeat(cap);
-  const cells = [...el.moteBar.querySelectorAll('.cell')];
+  let cells = [];
+  const ensureCells = (capacity) => {
+    if (cells.length === capacity) return;
+    el.moteBar.innerHTML = '<span class="cell"></span>'.repeat(capacity);
+    cells = [...el.moteBar.querySelectorAll('.cell')];
+    el.moteBar.style.setProperty('--capacity', capacity);
+    for (let i = 0; i < capacity; i++) delete cache['c' + i];
+  };
   let pipNodes = [];
   const ensurePips = (n) => {
     if (pipNodes.length === n) return;
@@ -59,6 +64,8 @@ export function createHud(tuning) {
           flameNodes[i].classList.toggle('off', !on);
         }
       }
+      const cap = s.player.capacity ?? tuning.carry_capacity;
+      ensureCells(cap);
       set('carried', el.carried, `${s.player.carried}/${cap}`);
       for (let i = 0; i < cap; i++) {
         const on = i < s.player.carried;
@@ -67,9 +74,10 @@ export function createHud(tuning) {
       const nLan = s.lanterns.length;
       const nLit = s.lanterns.filter((l) => l.lit).length;
       set('lit', el.lit, `${nLit}/${nLan}`);
+      set('goal', el.goal, `Bình minh cần ${Math.ceil(tuning.win_ratio * nLan)}/${nLan} đèn sáng`);
       ensurePips(nLan);
       for (let i = 0; i < nLan; i++) {
-        const on = i < nLit;
+        const on = s.lanterns[i].lit;
         if (cache['p' + i] !== on) { cache['p' + i] = on; pipNodes[i].classList.toggle('on', on); }
       }
       set('score', el.score, String(s.score));

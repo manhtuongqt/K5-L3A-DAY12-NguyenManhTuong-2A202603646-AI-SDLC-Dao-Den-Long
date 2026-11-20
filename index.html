@@ -15,11 +15,12 @@
     </div>
     <div class="panel tc">
       <div id="nightLabel" class="lbl small">Đêm 1 · Đảo Bến</div>
-      <div id="time" class="time">05:00</div>
+      <div id="time" class="time">--:--</div>
     </div>
     <div class="panel tr">
-      <div class="row"><span class="lbl">Đèn</span><b id="lit">0/5</b></div>
+      <div class="row"><span class="lbl">Đèn đang sáng</span><b id="lit">—</b></div>
       <div id="lanternPips" class="pips"></div>
+      <div id="lanternGoal" class="small"></div>
       <div class="row"><span class="lbl">Điểm</span><b id="score" class="score">0</b></div>
     </div>
 
@@ -34,7 +35,7 @@
     <div id="prompt" class="prompt" hidden></div>
 
     <div class="bottom-center">
-      <div class="lbl small">Đom đóm <b id="carried">0/10</b></div>
+      <div class="lbl small">Đom đóm <b id="carried">—</b></div>
       <div id="moteBar" class="motebar"></div>
     </div>
 
@@ -54,7 +55,7 @@
     </div>
 
     <div class="help panel">
-      <kbd>WASD</kbd> đi · <kbd>Space</kbd> nhảy · <kbd>Shift</kbd> lướt · <kbd>E</kbd> nạp đèn · <kbd>F</kbd> tỏa sáng<br />
+      <kbd>WASD</kbd> đi · <kbd>Space</kbd> nhảy · <kbd>Shift</kbd> lướt · <kbd>E</kbd> thắp / châm dầu · <kbd>F</kbd> tỏa sáng<br />
       Kéo chuột / <kbd>Q</kbd> <kbd>C</kbd> xoay camera · <kbd>Esc</kbd> tạm dừng · <kbd>R</kbd> chơi lại Đêm
     </div>
   </div>

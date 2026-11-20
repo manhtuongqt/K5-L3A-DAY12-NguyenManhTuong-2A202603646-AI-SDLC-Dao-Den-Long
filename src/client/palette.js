@@ -13,6 +13,7 @@ export const PAL = {
   moteHalo: 0xffe58a, // đom đóm quầng
   shade: 0x120a1a,    // Bóng Mực thân
   shadeRim: 0x7a3cff, // Bóng Mực viền
+  shadeAccessible: 0x00b3ff, // viền + mắt trong bảng màu dễ phân biệt
   shadeStun: 0x3a3450, // Bóng Mực bị choáng
   cloud: 0xe8e2d0,    // áo Mây
   mayHair: 0xe4eff4,  // tóc bạch kim ánh xanh bạc

@@ -194,6 +194,14 @@ export function createStage(canvas, tuning, glowTex) {
   const capMat = new THREE.MeshStandardMaterial({ color: PAL.scarf, roughness: 0.7 });
   const stoneMat = new THREE.MeshStandardMaterial({ color: PAL.lampOff, roughness: 1, flatShading: true });
   const beamGeo = new THREE.CylinderGeometry(0.35, 0.9, 46, 16, 1, true);
+  const fuelBarGeo = new THREE.PlaneGeometry(1, 1);
+  const tearShape = new THREE.Shape();
+  tearShape.moveTo(-0.04, 0.36);
+  [[0.1, 0.14], [0.02, 0.03], [0.13, -0.13], [-0.02, -0.38],
+    [-0.08, -0.13], [-0.03, 0.01], [-0.14, 0.18]].forEach(([x, y]) => tearShape.lineTo(x, y));
+  tearShape.closePath();
+  const tearGeo = new THREE.ShapeGeometry(tearShape);
+  const tearMat = new THREE.MeshBasicMaterial({ color: PAL.shade, side: THREE.DoubleSide });
 
   function makeLantern(l, index) {
     const g = new THREE.Group();
@@ -221,7 +229,30 @@ export function createStage(canvas, tuning, glowTex) {
     const tassel = new THREE.Mesh(tasselGeo, capMat); tassel.position.y = -1.08;
     const hook = new THREE.Mesh(tasselGeo, woodMat); hook.position.y = 1.05; hook.scale.y = 0.8;
     head.add(body, core, r1, r2, capTop, capBot, tassel, hook);
+    // Các vết rách ở bốn mặt giúp nhận biết đèn tắt từ mọi phía, không chỉ bằng màu.
+    const tears = new THREE.Group();
+    for (let i = 0; i < 4; i++) {
+      const slit = new THREE.Mesh(tearGeo, tearMat);
+      const a = i * Math.PI / 2;
+      slit.position.set(Math.sin(a) * 0.625, 0, Math.cos(a) * 0.625);
+      slit.rotation.y = a;
+      tears.add(slit);
+    }
+    head.add(tears);
     g.add(head);
+
+    const fuelBar = new THREE.Group();
+    fuelBar.position.y = 5.45;
+    const barBackMat = new THREE.MeshBasicMaterial({ color: PAL.sky, transparent: true,
+      opacity: 0.9, side: THREE.DoubleSide, depthWrite: false });
+    const barFillMat = new THREE.MeshBasicMaterial({ color: PAL.lampCore, transparent: true,
+      side: THREE.DoubleSide, depthWrite: false });
+    const barBack = new THREE.Mesh(fuelBarGeo, barBackMat);
+    barBack.scale.set(1.7, 0.25, 1);
+    const barFill = new THREE.Mesh(fuelBarGeo, barFillMat);
+    barFill.position.z = 0.01;
+    fuelBar.add(barBack, barFill);
+    g.add(fuelBar);
 
     const halo = new THREE.Sprite(new THREE.SpriteMaterial({
       map: glowTex, color: PAL.lampOn, transparent: true, opacity: 0,
@@ -256,6 +287,7 @@ export function createStage(canvas, tuning, glowTex) {
     g.add(beam);
 
     const pips = [];
+    const pipMeshes = [];
     for (let i = 0; i < cost; i++) {
       const a = (i / cost) * Math.PI * 2;
       const m = new THREE.MeshStandardMaterial({
@@ -265,14 +297,20 @@ export function createStage(canvas, tuning, glowTex) {
       p.position.set(Math.sin(a) * 1.5, 0.4, Math.cos(a) * 1.5);
       g.add(p);
       pips.push(m);
+      pipMeshes.push(p);
     }
     root.add(g);
-    return { id: l.id, group: g, head, bodyMat, coreMat, halo, ringMat, discMat, wave, beamMat, pips,
+    return { id: l.id, group: g, head, tears, fuelBar, barFill, barFillMat, barBackMat,
+      bodyMat, coreMat, halo, ringMat, discMat, wave, beamMat, pips, pipMeshes,
       lit: 0, target: 0, phase: index * 1.7 };
   }
 
   function clearLanterns() {
-    for (const v of lanternViews.values()) root.remove(v.group);
+    for (const v of lanternViews.values()) {
+      root.remove(v.group);
+      for (const m of [v.bodyMat, v.coreMat, v.halo.material, v.ringMat, v.discMat,
+        v.wave.material, v.beamMat, v.barFillMat, v.barBackMat, ...v.pips]) m.dispose();
+    }
     lanternViews.clear();
   }
 
@@ -283,9 +321,25 @@ export function createStage(canvas, tuning, glowTex) {
       let v = lanternViews.get(l.id);
       if (!v) { v = makeLantern(l, i); lanternViews.set(l.id, v); }
       v.target = l.lit ? 1 : 0;
-      v.lit += (v.target - v.lit) * Math.min(1, dt * 3.2);
+      v.lit = l.lit ? v.lit + (v.target - v.lit) * Math.min(1, dt * 3.2) : 0;
       if (l.lit) litCount++;
-      const k = v.lit;
+      const low = l.lit && l.fuel < tuning.low_fuel_threshold;
+      // Chu kỳ 1 giây; đèn và thanh dầu nhấp nháy cùng pha.
+      const warning = low ? 0.35 + 0.65 * (0.5 + 0.5 * Math.cos(t * Math.PI * 2)) : 1;
+      const k = v.lit * warning;
+      const safe = l.lit && !low ? v.lit : 0;
+      v.head.scale.setScalar(l.lit ? 1 : 0.8);
+      v.tears.visible = !l.lit;
+      v.fuelBar.visible = l.lit;
+      // Root phản chiếu X: đổi quaternion để thanh dầu luôn hướng về camera.
+      v.fuelBar.quaternion.copy(camera.quaternion);
+      v.fuelBar.quaternion.y *= -1;
+      v.fuelBar.quaternion.z *= -1;
+      const fuelRatio = Math.max(0, Math.min(1, l.fuel / tuning.fuel_max));
+      v.barFill.scale.set(1.55 * fuelRatio, 0.13, 1);
+      v.barFill.position.x = -0.775 + 0.775 * fuelRatio;
+      v.barFillMat.opacity = warning;
+      v.barBackMat.opacity = 0.9 * warning;
       const flick = 1 + 0.07 * Math.sin(t * 9 + v.phase) + 0.04 * Math.sin(t * 23 + v.phase * 2);
       v.bodyMat.color.copy(LAMP_OFF).lerp(LAMP_ON, k); // tắt #5B5F6E, sáng #FFB347
       v.bodyMat.emissiveIntensity = 2.0 * k * flick;
@@ -297,15 +351,20 @@ export function createStage(canvas, tuning, glowTex) {
       }
       v.halo.material.opacity = 0.75 * k * (0.9 + 0.1 * flick);
       v.halo.scale.setScalar(7 + 2 * k);
-      v.ringMat.opacity = 0.5 * k;
-      v.discMat.opacity = 0.1 * k;
-      v.beamMat.opacity = 0.04 + 0.1 * k + 0.02 * Math.sin(t * 2 + v.phase);
+      v.ringMat.opacity = 0.5 * safe;
+      v.discMat.opacity = 0.1 * safe;
+      v.beamMat.opacity = l.lit ? (0.04 + 0.1 * v.lit + 0.02 * Math.sin(t * 2 + v.phase)) * warning : 0;
       const w = (t * 0.35 + v.phase) % 1;
       v.wave.scale.setScalar(0.25 + 0.75 * w);
-      v.wave.material.opacity = 0.35 * k * (1 - w);
+      v.wave.material.opacity = 0.35 * safe * (1 - w);
       v.head.rotation.z = Math.sin(t * 1.3 + v.phase) * 0.03 * (1 - k * 0.5);
-      const dep = l.lit ? cost : l.deposited;
+      const lightCost = (l.lit ? l.relit_count > 0 : l.ever_lit) ? tuning.relight_cost : cost;
+      const dep = l.lit ? lightCost : l.deposited;
       for (let p = 0; p < v.pips.length; p++) {
+        // Thắp lại cần ít đom đóm hơn; không vẽ các ô vượt chi phí hiện tại.
+        v.pipMeshes[p].visible = p < lightCost;
+        const a = (p / lightCost) * Math.PI * 2;
+        v.pipMeshes[p].position.set(Math.sin(a) * 1.5, 0.4, Math.cos(a) * 1.5);
         const on = p < dep;
         v.pips[p].emissiveIntensity += ((on ? 1.6 : 0) - v.pips[p].emissiveIntensity) * Math.min(1, dt * 8);
         v.pips[p].color.setHex(on ? PAL.moteHalo : PAL.lampOff);
@@ -319,7 +378,7 @@ export function createStage(canvas, tuning, glowTex) {
         slot.target = c.power;
       } else slot.target = 0;
       const e = slot.light.intensity;
-      slot.light.intensity = e + (slot.target - e) * Math.min(1, dt * 8);
+      slot.light.intensity = c ? e + (slot.target - e) * Math.min(1, dt * 8) : 0;
     });
     return litCount;
   }
@@ -329,7 +388,7 @@ export function createStage(canvas, tuning, glowTex) {
   let ambientValue = ambientIntensity(0, 1);
   function updateAmbience(targetGlow, dt, t, flash, snapNow) {
     glow = snapNow ? targetGlow : glow + (targetGlow - glow) * Math.min(1, dt * 1.5);
-    ambientValue = 0.15 + 0.55 * glow; // công thức của ticket (lit/total đã làm mượt)
+    ambientValue = ambientIntensity(targetGlow, 1); // số đèn đang sáng, kể cả ngay tick đèn tắt
     ambient.intensity = ambientValue * Math.PI + 0.8 * flash;
     hemi.intensity = 1.1 + 0.4 * glow;
     moon.intensity = 1.2 + 0.8 * glow;
