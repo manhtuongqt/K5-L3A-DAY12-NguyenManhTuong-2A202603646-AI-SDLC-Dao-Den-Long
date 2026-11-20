@@ -8,10 +8,10 @@ import {
   run, runOk, scen, frames, snapAt, eventsNamed, assertClose, assertRunDistance,
 } from './helpers.js';
 
-// Snapshot v1.1: thứ tự khóa theo docs/notes/phase-2-design.md mục 10.
+// Snapshot v1.2: giữ trường v1.1, thêm trường Ticket-03 §7 (không áp đặt thứ tự trường mới).
 const SNAPSHOT_KEYS = ['type', 'tick', 'sim_tick', 'night', 'state', 'time_left_s', 'score', 'wind',
   'player', 'lanterns', 'shades', 'motes_active', 'motes', 'drifters', 'charms'];
-const PLAYER_KEYS = ['pos', 'vel', 'grounded', 'invuln', 'flames', 'carried', 'dash_cd_s', 'pulse_cd_s', 'charm_s'];
+const PLAYER_KEYS = ['pos', 'vel', 'grounded', 'invuln', 'flames', 'carried', 'dash_cd_s', 'pulse_cd_s', 'charm_s', 'capacity'];
 
 // Đệ quy gom mọi số trong một giá trị JSON.
 function numbersIn(v, acc = []) {
@@ -24,7 +24,7 @@ function numbersIn(v, acc = []) {
 // ---------------------------------------------------------------------------
 // R1: snapshot tick 0, cấu trúc
 
-test('[R1] snapshot tick 0 là dòng đầu, đủ trường, đúng trạng thái mặc định Đêm 1 (v1.1)', () => {
+test('[R1] snapshot tick 0 là dòng đầu, đủ trường, đúng trạng thái mặc định Đêm 1 (v1.2)', () => {
   const res = runOk({ seed: 7, ticks: 5 });
   const s = res.lines[0];
   assert.equal(s.type, 'snapshot');
@@ -41,6 +41,7 @@ test('[R1] snapshot tick 0 là dòng đầu, đủ trường, đúng trạng th�
   assert.equal(s.player.invuln, false);
   assert.equal(s.player.flames, T.flames);
   assert.equal(s.player.carried, 0);
+  assert.equal(s.player.capacity, T.carry_capacity);
   assert.equal(s.player.dash_cd_s, 0);
   assert.equal(s.player.pulse_cd_s, 0);
   assert.equal(s.player.charm_s, 0);
@@ -51,6 +52,9 @@ test('[R1] snapshot tick 0 là dòng đầu, đủ trường, đúng trạng th�
     for (let c = 0; c < 3; c++) assertClose(l.pos[c], lanternPos(i + 1)[c], 0.06, `L${i + 1}[${c}]:`);
     assert.equal(l.lit, false);
     assert.equal(l.deposited, 0);
+    assert.equal(l.fuel, 0);
+    assert.equal(l.ever_lit, false);
+    assert.equal(l.relit_count, 0);
   });
   assert.deepEqual(s.shades, [], 'v1.1: Đêm 1 không có Bóng Mực sẵn, sinh từ tick 300');
   assert.deepEqual(s.drifters, []);
@@ -66,25 +70,25 @@ test('[R1] night_start {night} phát với tick 0 ngay sau snapshot tick 0 (v1.1
   assert.deepEqual(ev.data, { night: 1 });
 });
 
-test('[R1] snapshot có đủ trường v1.1, đúng thứ tự khóa, kiểu dữ liệu hợp lệ', () => {
+test('[R1] snapshot có đủ trường v1.2, giữ thứ tự khóa gốc, kiểu dữ liệu hợp lệ', () => {
   const res = runOk({ seed: 3, ticks: 30, snapshotEvery: 10 });
   assert.ok(res.snapshots.length >= 4);
   for (const s of res.snapshots) {
     assert.deepEqual(Object.keys(s), SNAPSHOT_KEYS);
     assert.deepEqual(Object.keys(s.wind), ['active', 'dir_deg']);
-    assert.deepEqual(Object.keys(s.player), PLAYER_KEYS);
+    assert.deepEqual(Object.keys(s.player).sort(), [...PLAYER_KEYS].sort());
     assert.equal(s.player.pos.length, 3);
     assert.equal(s.player.vel.length, 3);
     assert.equal(typeof s.player.grounded, 'boolean');
     assert.equal(typeof s.player.invuln, 'boolean');
     for (const k of ['dash_cd_s', 'pulse_cd_s', 'charm_s']) assert.equal(typeof s.player[k], 'number');
     for (const l of s.lanterns) {
-      assert.deepEqual(Object.keys(l), ['id', 'pos', 'lit', 'deposited']);
+      assert.deepEqual(Object.keys(l).sort(), ['id', 'pos', 'lit', 'deposited', 'fuel', 'ever_lit', 'relit_count'].sort());
       assert.equal(l.pos.length, 3);
     }
     for (const sh of s.shades) {
       assert.deepEqual(Object.keys(sh), ['id', 'pos', 'state']);
-      assert.ok(['spawning', 'wander', 'chase', 'recoil', 'stunned'].includes(sh.state), `state Bóng Mực lạ: ${sh.state}`);
+      assert.ok(['spawning', 'wander', 'chase', 'recoil', 'stunned', 'drain'].includes(sh.state), `state Bóng Mực lạ: ${sh.state}`);
     }
     for (const m of s.motes) {
       assert.deepEqual(Object.keys(m), ['id', 'pos', 'kind', 'ttl_s']);

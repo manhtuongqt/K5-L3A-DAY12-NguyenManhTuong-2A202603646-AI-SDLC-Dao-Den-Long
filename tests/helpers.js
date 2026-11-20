@@ -102,14 +102,28 @@ export function run(opts = {}) {
   if (opts.out !== false) put('--out', outPath);
   if (opts.extraArgs) args.push(...opts.extraArgs);
 
-  const r = spawnSync(process.execPath, args, { cwd: ROOT, encoding: 'utf8', timeout: 120000 });
+  // File descriptors giữ được chẩn đoán cả trong sandbox làm rỗng pipe của spawnSync.
+  // Không nới assertion về lỗi CLI; vẫn đọc đúng stdout/stderr của tiến trình con.
+  const stdoutPath = path.join(dir, 'stdout.txt');
+  const stderrPath = path.join(dir, 'stderr.txt');
+  const stdoutFd = fs.openSync(stdoutPath, 'w');
+  const stderrFd = fs.openSync(stderrPath, 'w');
+  let r;
+  try {
+    r = spawnSync(process.execPath, args, {
+      cwd: ROOT, encoding: 'utf8', timeout: 120000, stdio: ['ignore', stdoutFd, stderrFd],
+    });
+  } finally {
+    fs.closeSync(stdoutFd);
+    fs.closeSync(stderrFd);
+  }
   const raw = fs.existsSync(outPath) ? fs.readFileSync(outPath, 'utf8') : null;
   let cache = null;
   const res = {
     status: r.status,
     signal: r.signal,
-    stderr: r.stderr || '',
-    stdout: r.stdout || '',
+    stderr: fs.readFileSync(stderrPath, 'utf8'),
+    stdout: fs.readFileSync(stdoutPath, 'utf8'),
     outPath,
     raw,
     get lines() {
@@ -190,19 +204,33 @@ export function assertPosClose(actual, expected, tol, msg = '') {
 
 /**
  * Kiểm tra điểm trong output khớp bảng điểm (R9): cộng dồn theo sự kiện rồi so với
- * mọi snapshot và dòng end. Thắng: thêm per_second_left*floor(time_left) + per_flame_left*flames.
+ * mọi snapshot và dòng end theo Ticket-03 §5. drainingAtPulse[tick] là danh sách id
+ * đang drain ở đầu bước 7 do oracle scenario cung cấp (snapshot tick trước có thể
+ * đã lỗi thời sau bước 2/6); bài thắng cần snapshot tick cuối
+ * và dawnFuel[id] chưa làm tròn từ oracle của scenario (floor không dùng snapshot đã làm tròn).
  */
-export function assertScoreConsistent(res, { t0 = T.night1_duration_s, flames0 = T.flames } = {}) {
+export function assertScoreConsistent(res, { flames0 = T.flames, dawnFuel, drainingAtPulse = {} } = {}) {
   let score = 0;
   let flames = flames0;
   for (const l of res.lines) {
     if (l.type === 'event') {
-      if (l.name === 'deposit') score += S.per_mote * l.data.amount; // v1.1: điểm khi NẠP, không khi nhặt
-      else if (l.name === 'lantern_lit') score += S.per_lantern;
-      else if (l.name === 'pulse') score += S.per_stun * l.data.stunned_ids.length;
+      if (l.name === 'deposit' || l.name === 'refuel') score += S.per_mote * l.data.amount;
+      else if (l.name === 'lantern_lit') score += l.data.relight ? S.per_relight : S.per_lantern;
+      else if (l.name === 'pulse') {
+        for (const id of l.data.stunned_ids) {
+          const wasDrain = drainingAtPulse[l.tick]?.includes(id) ?? false;
+          score += wasDrain ? S.per_stun_drain : S.per_stun;
+        }
+      }
       else if (l.name === 'player_hit') flames = l.data.flames;
       else if (l.name === 'game_over' && l.data.result === 'won') {
-        score += S.per_second_left * Math.floor(t0 - l.tick / 60) + S.per_flame_left * flames;
+        const final = snapAt(res, l.tick);
+        score += final.lanterns.filter((lamp) => lamp.lit)
+          .reduce((sum, lamp) => {
+            assert.ok(Number.isFinite(dawnFuel?.[lamp.id]), `cần dầu thật của ${lamp.id} để tính floor ở bình minh`);
+            return sum + S.per_lit_lantern_dawn + Math.floor(dawnFuel[lamp.id]);
+          }, 0)
+          + S.per_flame_left * flames;
       }
     } else if (l.type === 'snapshot') {
       assert.equal(l.score, score, `score snapshot tick ${l.tick}`);

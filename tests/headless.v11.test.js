@@ -24,24 +24,23 @@ const lastGameOver = (res) => eventsNamed(res, 'game_over').at(-1);
 // ---------------------------------------------------------------------------
 // P2-1: số chuẩn + contract v1.1 + snapshot đủ trường mới + --night 1/2/3
 
-test('[P2-1] game.contract.json v1.1 khớp số chuẩn của ticket Phần 1 (số chép từ ticket, cố ý hard-code ở test này)', () => {
+test('[P2-1] game.contract.json v1.2 giữ số chuẩn Phase 2 chưa bị Ticket-03 thay thế', () => {
   const c = JSON.parse(fs.readFileSync(path.join(ROOT, 'game.contract.json'), 'utf8'));
-  assert.equal(c.contract_version, '1.1');
+  assert.equal(c.contract_version, '1.2');
   const t = c.tuning;
   const expected = {
     player_speed: 6, carry_capacity: 10, lantern_cost: 10, lantern_count_night1: 5, pickup_radius: 1,
-    interact_radius: 2, pulse_cost: 3, pulse_radius: 5, night1_duration_s: 300, night2_duration_s: 330,
-    night3_duration_s: 360, flames: 3, invuln_s: 1.5, hit_drop_ratio: 0.5, pulse_stun_s: 2, pulse_push_m: 4,
+    interact_radius: 2, pulse_cost: 3, pulse_radius: 5, flames: 3, invuln_s: 1.5, hit_drop_ratio: 0.5, pulse_stun_s: 2, pulse_push_m: 4,
     pulse_cooldown_s: 3, safe_radius: 6, shade_speed: 4, shade_hit_radius: 1, fall_enabled: true,
     dash_speed: 14, dash_duration_s: 0.2, dash_cooldown_s: 1.5,
   };
   for (const [k, v] of Object.entries(expected)) assert.equal(t[k], v, `tuning.${k}`);
-  assert.deepEqual(t.score, { per_mote: 10, per_lantern: 100, per_stun: 5, per_second_left: 2, per_flame_left: 50 });
+  // Thời lượng và điểm cũ bị thay bởi Ticket-03 §3/§5; kiểm tra qua scenario v1.2.
   assert.ok(c.team && c.build_cmd && c.run_cmd && c.headless_cmd);
 });
 
 for (const night of [1, 2, 3]) {
-  test(`[P2-1] --night ${night}: snapshot 0 đủ trường v1.1, đúng đêm, thời lượng, điểm xuất phát, đèn theo ticket`, () => {
+  test(`[P2-1] --night ${night}: snapshot 0 giữ trường Phase 2, đúng đêm, thời lượng, điểm xuất phát, đèn theo ticket`, () => {
     const res = runOk({ night, seed: 3, ticks: 10 });
     const s = res.lines[0];
     assert.equal(s.type, 'snapshot');
@@ -861,14 +860,14 @@ test('[P2-12] Bóng Mực ở ngoài bị chặn ở mép 6 m quanh đèn đã s
 // ---------------------------------------------------------------------------
 // P2-13: điểm chuẩn
 
-test('[P2-13] +10 mỗi đom đóm nạp (kể cả nạp dở), +100 khi đèn sáng, +5 mỗi Bóng Mực trúng pulse (kể cả con đang choáng)', () => {
+test('[P2-13] điểm nạp/thắp/pulse theo tuning v1.2, nhặt vẫn không cộng điểm', () => {
   const L = lanternPos(1);
-  // 1) nạp dở 4 đom đóm: +40, chưa +100
+  // 1) nạp dở: chỉ nhận điểm mỗi đom đóm
   const a = runOk({ ticks: 3, scenario: scen({ player: { pos: L, carried: 4 } }), inputs: frames({ tick: 0, interact: true }, { tick: 1, interact: false }) });
   assert.equal(a.end.score, 4 * S.per_mote);
-  // 2) nạp đủ: 10*10 + 100
-  const b = runOk({ ticks: 3, scenario: scen({ player: { pos: L, carried: 10 } }), inputs: frames({ tick: 0, interact: true }, { tick: 1, interact: false }) });
-  assert.equal(b.end.score, 10 * S.per_mote + S.per_lantern);
+  // 2) nạp đủ: điểm nạp + điểm thắp lần đầu
+  const b = runOk({ ticks: 3, scenario: scen({ player: { pos: L, carried: T.lantern_cost } }), inputs: frames({ tick: 0, interact: true }, { tick: 1, interact: false }) });
+  assert.equal(b.end.score, T.lantern_cost * S.per_mote + S.per_lantern);
   // 3) pulse trúng 2 Bóng Mực, một con đang choáng sẵn: +5 mỗi con
   const sc = scen({
     player: { carried: 3 },
@@ -882,18 +881,23 @@ test('[P2-13] +10 mỗi đom đóm nạp (kể cả nạp dở), +100 khi đèn 
   assert.equal(d.end.score, 0);
 });
 
-test('[P2-13] khi thắng: + floor(giây còn lại)*2 + 50*Ngọn Lửa còn lại (tổng điểm khớp công thức ở mọi snapshot)', () => {
-  const t0 = 100;
+test('[P2-13] chỉ thưởng ở bình minh: điểm dầu/đèn và Ngọn Lửa theo tuning v1.2', () => {
+  const t0 = 1;
   const l5 = lanternPos(5);
   const sc = scen({
     time_left_s: t0,
     player: { pos: l5, carried: T.lantern_cost, flames: 2 },
     lanterns: [1, 2, 3, 4].map((k) => ({ id: `L${k}`, lit: true })),
   });
-  const res = runOk({ ticks: 20, snapshotEvery: 1, scenario: sc, inputs: frames({ tick: 0, interact: true }, { tick: 1, interact: false }) });
-  const expected = 10 * S.per_mote + S.per_lantern + S.per_second_left * Math.floor(t0 - 1 / 60) + S.per_flame_left * 2;
+  const res = runOk({ ticks: ticksOf(t0) + 1, snapshotEvery: 1, scenario: sc, inputs: frames({ tick: 0, interact: true }, { tick: 1, interact: false }) });
+  const expected = T.lantern_cost * S.per_mote + S.per_lantern
+    + 4 * (S.per_lit_lantern_dawn + Math.floor(T.fuel_max - t0 * T.fuel_decay_per_s))
+    + S.per_lit_lantern_dawn + Math.floor(T.fuel_max - (ticksOf(t0) - 1) / 60 * T.fuel_decay_per_s)
+    + S.per_flame_left * 2;
   assert.equal(res.end.score, expected);
-  assert.equal(assertScoreConsistent(res, { t0, flames0: 2 }), expected);
+  const dawnFuel = Object.fromEntries([1, 2, 3, 4, 5].map((id) => [`L${id}`,
+    T.fuel_max - (id === 5 ? (ticksOf(t0) - 1) / 60 : t0) * T.fuel_decay_per_s]));
+  assert.equal(assertScoreConsistent(res, { flames0: 2, dawnFuel }), expected);
 });
 
 for (const night of [2, 3]) {
@@ -922,18 +926,21 @@ test('[P2-14] hết Ngọn Lửa cùng tick thắp đèn cuối -> thua (no_flam
   assert.deepEqual(lastGameOver(res).data, { result: 'lost', reason: 'no_flames' });
   assert.equal(res.end.state, 'lost');
   assert.equal(res.end.ticks, 1);
-  assert.equal(res.end.score, 10 * S.per_mote + S.per_lantern, 'thua: không có thưởng thắng');
+  assert.equal(res.end.score, T.lantern_cost * S.per_mote + S.per_lantern, 'thua: không có thưởng thắng');
 });
 
-test('[P2-14] thắp đèn cuối đúng tick hết giờ -> thắng (không phải dawn)', () => {
+test('[P2-14] thắp đèn cuối đúng tick bình minh -> thắng dawn_survived', () => {
   const res = runOk({ ticks: 50, scenario: lastLanternScenario({ time_left_s: 1 / 60 }), inputs: light });
-  assert.deepEqual(lastGameOver(res).data, { result: 'won', reason: 'all_lit' });
+  assert.deepEqual(lastGameOver(res).data, { result: 'won', reason: 'dawn_survived' });
   assert.equal(res.end.state, 'won');
   assert.equal(res.end.ticks, 1);
-  assert.equal(res.end.score, 10 * S.per_mote + S.per_lantern + S.per_flame_left * T.flames, 'floor(0 s) = 0');
+  const oldFuel = T.fuel_max - T.fuel_decay_per_s / 60;
+  assert.equal(res.end.score, T.lantern_cost * S.per_mote + S.per_lantern
+    + 4 * (S.per_lit_lantern_dawn + Math.floor(oldFuel))
+    + S.per_lit_lantern_dawn + T.fuel_max + S.per_flame_left * T.flames);
 });
 
-test('[P2-14] hết giờ mà chưa thắp đủ -> thua dawn; còn Ngọn Lửa, đèn chưa đủ thì không thắng', () => {
+test('[P2-14] hết giờ không có đèn sáng -> thua dawn', () => {
   const res = runOk({ ticks: 500, scenario: scen({ time_left_s: 1 }) });
   assert.deepEqual(lastGameOver(res).data, { result: 'lost', reason: 'dawn' });
   assert.equal(res.end.ticks, 60);
