@@ -1,0 +1,6 @@
+# verify 2026-11-20T08:33:10Z | node v22.23.4 | Linux x86_64 | commit 98b8c5d
+tests: # tests 210 # pass 210 # fail 0 
+night 1: 21600 ticks in 1.080276493s (limit 30s) | determinism IDENTICAL | sha256 a567ffc776a08703 | {"type":"end","ticks":21600,"state":"lost","score":0}
+night 2: 21600 ticks in 1.721527072s (limit 30s) | determinism IDENTICAL | sha256 c5738d4a561a6d32 | {"type":"end","ticks":21600,"state":"lost","score":0}
+night 3: 21600 ticks in 1.935903404s (limit 30s) | determinism IDENTICAL | sha256 f639f3d0a9646bab | {"type":"end","ticks":21600,"state":"lost","score":0}
+RESULT: PASS

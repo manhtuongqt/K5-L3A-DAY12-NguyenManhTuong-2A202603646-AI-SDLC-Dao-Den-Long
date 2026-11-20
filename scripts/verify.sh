@@ -20,7 +20,7 @@ log "tests: $(grep -E '^# (tests|pass|fail)' "$REPORT" | tr '\n' ' ')"
 for n in 1 2 3; do
   for i in a b; do
     s=$(date +%s.%N)
-    node src/headless.js --seed 42 --night $n --ticks 21600 --out "$TMP/n$n$i.jsonl" || { log "FAIL: headless night $n exit $?"; fail=1; }
+    node src/headless.js --seed 42 --night $n --ticks 21600 --scenario tests/scenarios/perf-full-night.json --out "$TMP/n$n$i.jsonl" || { log "FAIL: headless night $n exit $?"; fail=1; }
     e=$(date +%s.%N)
   done
   t=$(echo "$e - $s" | bc)
