@@ -1,0 +1,4 @@
+# Determinism check (2026-11-20T08:11:59Z, node v22.23.4, Linux x86_64)
+4da29a014a2b057d23bce96ce1f1692a0ae727c83b8fed072d75cce564e4c090  /tmp/det1.jsonl
+4da29a014a2b057d23bce96ce1f1692a0ae727c83b8fed072d75cce564e4c090  /tmp/det2.jsonl
+IDENTICAL

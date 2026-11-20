@@ -1,0 +1,770 @@
+
+> dao-den-long@0.1.0 test
+> node --test tests/*.test.js
+
+TAP version 13
+# Subtest: [R1] snapshot tick 0 là dòng đầu, đủ trường, đúng trạng thái mặc định
+ok 1 - [R1] snapshot tick 0 là dòng đầu, đủ trường, đúng trạng thái mặc định
+  ---
+  duration_ms: 44.977369
+  type: 'test'
+  ...
+# Subtest: [R1] snapshot có đủ trường, đúng thứ tự khóa, trạng thái hợp lệ
+ok 2 - [R1] snapshot có đủ trường, đúng thứ tự khóa, trạng thái hợp lệ
+  ---
+  duration_ms: 40.102815
+  type: 'test'
+  ...
+# Subtest: [R1] thế giới mặc định (không scenario): 20 đom đóm, 2 Bóng Mực, trong đảo, cách đèn >= 3 m
+ok 3 - [R1] thế giới mặc định (không scenario): 20 đom đóm, 2 Bóng Mực, trong đảo, cách đèn >= 3 m
+  ---
+  duration_ms: 41.519389
+  type: 'test'
+  ...
+# Subtest: [R1] tọa độ và time_left_s làm tròn tối đa 3 chữ số, không có -0, JSON gọn
+ok 4 - [R1] tọa độ và time_left_s làm tròn tối đa 3 chữ số, không có -0, JSON gọn
+  ---
+  duration_ms: 52.274769
+  type: 'test'
+  ...
+# Subtest: [R1] time_left_s = thời lượng - tick/60 (làm tròn 3 chữ số)
+ok 5 - [R1] time_left_s = thời lượng - tick/60 (làm tròn 3 chữ số)
+  ---
+  duration_ms: 43.868654
+  type: 'test'
+  ...
+# Subtest: [R1] --ticks N cho end.ticks = N khi game chưa kết thúc; end là dòng cuối
+ok 6 - [R1] --ticks N cho end.ticks = N khi game chưa kết thúc; end là dòng cuối
+  ---
+  duration_ms: 127.094176
+  type: 'test'
+  ...
+# Subtest: [R1] --ticks 0 cho snapshot tick 0 rồi end ticks 0
+ok 7 - [R1] --ticks 0 cho snapshot tick 0 rồi end ticks 0
+  ---
+  duration_ms: 47.471233
+  type: 'test'
+  ...
+# Subtest: [R1] snapshot mặc định mỗi 10 tick, bắt đầu từ tick 0
+ok 8 - [R1] snapshot mặc định mỗi 10 tick, bắt đầu từ tick 0
+  ---
+  duration_ms: 44.801855
+  type: 'test'
+  ...
+# Subtest: [R1] --snapshot-every K: snapshot đúng các tick chia hết cho K (kể cả tick cuối)
+ok 9 - [R1] --snapshot-every K: snapshot đúng các tick chia hết cho K (kể cả tick cuối)
+  ---
+  duration_ms: 125.217716
+  type: 'test'
+  ...
+# Subtest: [R1] snapshot tick 0 là trạng thái trước input; input tick k tác dụng lên trạng thái k+1
+ok 10 - [R1] snapshot tick 0 là trạng thái trước input; input tick k tác dụng lên trạng thái k+1
+  ---
+  duration_ms: 39.988835
+  type: 'test'
+  ...
+# Subtest: [R1] input tick 0 đã tác dụng ở bước đầu (snapshot tick 0 vẫn ở gốc, tick 1 đã đi)
+ok 11 - [R1] input tick 0 đã tác dụng ở bước đầu (snapshot tick 0 vẫn ở gốc, tick 1 đã đi)
+  ---
+  duration_ms: 41.237048
+  type: 'test'
+  ...
+# Subtest: [R1] sự kiện mang tick = k+1 và đứng trước snapshot cùng tick
+ok 12 - [R1] sự kiện mang tick = k+1 và đứng trước snapshot cùng tick
+  ---
+  duration_ms: 73.21395
+  type: 'test'
+  ...
+# Subtest: [R1] frame chỉ đổi trường có mặt, trường vắng giữ giá trị cũ
+ok 13 - [R1] frame chỉ đổi trường có mặt, trường vắng giữ giá trị cũ
+  ---
+  duration_ms: 40.648488
+  type: 'test'
+  ...
+# Subtest: [R1] không có file inputs: người chơi đứng yên
+ok 14 - [R1] không có file inputs: người chơi đứng yên
+  ---
+  duration_ms: 43.250826
+  type: 'test'
+  ...
+# Subtest: [R1] ví dụ scenario/inputs chép từ PRD chạy được, mã thoát 0, ticks đủ
+ok 15 - [R1] ví dụ scenario/inputs chép từ PRD chạy được, mã thoát 0, ticks đủ
+  ---
+  duration_ms: 44.777054
+  type: 'test'
+  ...
+# Subtest: [R1] hợp lệ: frames rỗng, frame chỉ có tick, vector move [1,1]
+ok 16 - [R1] hợp lệ: frames rỗng, frame chỉ có tick, vector move [1,1]
+  ---
+  duration_ms: 159.970317
+  type: 'test'
+  ...
+# Subtest: [R1] inputs sai định dạng (tick trùng) -> mã thoát 2, lỗi ra stderr
+ok 17 - [R1] inputs sai định dạng (tick trùng) -> mã thoát 2, lỗi ra stderr
+  ---
+  duration_ms: 50.523107
+  type: 'test'
+  ...
+# Subtest: [R1] inputs sai định dạng (tick giảm) -> mã thoát 2, lỗi ra stderr
+ok 18 - [R1] inputs sai định dạng (tick giảm) -> mã thoát 2, lỗi ra stderr
+  ---
+  duration_ms: 43.76999
+  type: 'test'
+  ...
+# Subtest: [R1] inputs sai định dạng (tick âm) -> mã thoát 2, lỗi ra stderr
+ok 19 - [R1] inputs sai định dạng (tick âm) -> mã thoát 2, lỗi ra stderr
+  ---
+  duration_ms: 43.263431
+  type: 'test'
+  ...
+# Subtest: [R1] inputs sai định dạng (tick không nguyên) -> mã thoát 2, lỗi ra stderr
+ok 20 - [R1] inputs sai định dạng (tick không nguyên) -> mã thoát 2, lỗi ra stderr
+  ---
+  duration_ms: 49.027053
+  type: 'test'
+  ...
+# Subtest: [R1] inputs sai định dạng (tick là chuỗi) -> mã thoát 2, lỗi ra stderr
+ok 21 - [R1] inputs sai định dạng (tick là chuỗi) -> mã thoát 2, lỗi ra stderr
+  ---
+  duration_ms: 47.98766
+  type: 'test'
+  ...
+# Subtest: [R1] inputs sai định dạng (thiếu tick) -> mã thoát 2, lỗi ra stderr
+ok 22 - [R1] inputs sai định dạng (thiếu tick) -> mã thoát 2, lỗi ra stderr
+  ---
+  duration_ms: 45.469534
+  type: 'test'
+  ...
+# Subtest: [R1] inputs sai định dạng (move x > 1) -> mã thoát 2, lỗi ra stderr
+ok 23 - [R1] inputs sai định dạng (move x > 1) -> mã thoát 2, lỗi ra stderr
+  ---
+  duration_ms: 43.442339
+  type: 'test'
+  ...
+# Subtest: [R1] inputs sai định dạng (move z < -1) -> mã thoát 2, lỗi ra stderr
+ok 24 - [R1] inputs sai định dạng (move z < -1) -> mã thoát 2, lỗi ra stderr
+  ---
+  duration_ms: 45.083977
+  type: 'test'
+  ...
+# Subtest: [R1] inputs sai định dạng (move chỉ 1 phần tử) -> mã thoát 2, lỗi ra stderr
+ok 25 - [R1] inputs sai định dạng (move chỉ 1 phần tử) -> mã thoát 2, lỗi ra stderr
+  ---
+  duration_ms: 42.884638
+  type: 'test'
+  ...
+# Subtest: [R1] inputs sai định dạng (move 3 phần tử) -> mã thoát 2, lỗi ra stderr
+ok 26 - [R1] inputs sai định dạng (move 3 phần tử) -> mã thoát 2, lỗi ra stderr
+  ---
+  duration_ms: 41.856232
+  type: 'test'
+  ...
+# Subtest: [R1] inputs sai định dạng (move chứa chuỗi) -> mã thoát 2, lỗi ra stderr
+ok 27 - [R1] inputs sai định dạng (move chứa chuỗi) -> mã thoát 2, lỗi ra stderr
+  ---
+  duration_ms: 48.03058
+  type: 'test'
+  ...
+# Subtest: [R1] inputs sai định dạng (move không phải mảng) -> mã thoát 2, lỗi ra stderr
+ok 28 - [R1] inputs sai định dạng (move không phải mảng) -> mã thoát 2, lỗi ra stderr
+  ---
+  duration_ms: 45.741842
+  type: 'test'
+  ...
+# Subtest: [R1] inputs sai định dạng (cam_yaw_deg là chuỗi) -> mã thoát 2, lỗi ra stderr
+ok 29 - [R1] inputs sai định dạng (cam_yaw_deg là chuỗi) -> mã thoát 2, lỗi ra stderr
+  ---
+  duration_ms: 46.449812
+  type: 'test'
+  ...
+# Subtest: [R1] inputs sai định dạng (jump là số) -> mã thoát 2, lỗi ra stderr
+ok 30 - [R1] inputs sai định dạng (jump là số) -> mã thoát 2, lỗi ra stderr
+  ---
+  duration_ms: 40.931427
+  type: 'test'
+  ...
+# Subtest: [R1] inputs sai định dạng (interact là chuỗi) -> mã thoát 2, lỗi ra stderr
+ok 31 - [R1] inputs sai định dạng (interact là chuỗi) -> mã thoát 2, lỗi ra stderr
+  ---
+  duration_ms: 43.928583
+  type: 'test'
+  ...
+# Subtest: [R1] inputs sai định dạng (pulse là null) -> mã thoát 2, lỗi ra stderr
+ok 32 - [R1] inputs sai định dạng (pulse là null) -> mã thoát 2, lỗi ra stderr
+  ---
+  duration_ms: 49.024326
+  type: 'test'
+  ...
+# Subtest: [R1] inputs sai định dạng (thiếu frames) -> mã thoát 2, lỗi ra stderr
+ok 33 - [R1] inputs sai định dạng (thiếu frames) -> mã thoát 2, lỗi ra stderr
+  ---
+  duration_ms: 42.414585
+  type: 'test'
+  ...
+# Subtest: [R1] inputs sai định dạng (frames không phải mảng) -> mã thoát 2, lỗi ra stderr
+ok 34 - [R1] inputs sai định dạng (frames không phải mảng) -> mã thoát 2, lỗi ra stderr
+  ---
+  duration_ms: 49.860613
+  type: 'test'
+  ...
+# Subtest: [R1] inputs sai định dạng (frame là số) -> mã thoát 2, lỗi ra stderr
+ok 35 - [R1] inputs sai định dạng (frame là số) -> mã thoát 2, lỗi ra stderr
+  ---
+  duration_ms: 45.095858
+  type: 'test'
+  ...
+# Subtest: [R1] inputs không phải JSON -> mã thoát 2
+ok 36 - [R1] inputs không phải JSON -> mã thoát 2
+  ---
+  duration_ms: 128.361126
+  type: 'test'
+  ...
+# Subtest: [R1] file inputs/scenario không tồn tại -> mã thoát 2
+ok 37 - [R1] file inputs/scenario không tồn tại -> mã thoát 2
+  ---
+  duration_ms: 97.785793
+  type: 'test'
+  ...
+# Subtest: [R1] scenario sai định dạng (scenario là chuỗi) -> mã thoát 2
+ok 38 - [R1] scenario sai định dạng (scenario là chuỗi) -> mã thoát 2
+  ---
+  duration_ms: 46.541327
+  type: 'test'
+  ...
+# Subtest: [R1] scenario sai định dạng (scenario là số) -> mã thoát 2
+ok 39 - [R1] scenario sai định dạng (scenario là số) -> mã thoát 2
+  ---
+  duration_ms: 43.065419
+  type: 'test'
+  ...
+# Subtest: [R1] scenario sai định dạng (player.pos 2 phần tử) -> mã thoát 2
+ok 40 - [R1] scenario sai định dạng (player.pos 2 phần tử) -> mã thoát 2
+  ---
+  duration_ms: 48.078357
+  type: 'test'
+  ...
+# Subtest: [R1] scenario sai định dạng (player.pos chứa chuỗi) -> mã thoát 2
+ok 41 - [R1] scenario sai định dạng (player.pos chứa chuỗi) -> mã thoát 2
+  ---
+  duration_ms: 49.548976
+  type: 'test'
+  ...
+# Subtest: [R1] scenario sai định dạng (carried âm) -> mã thoát 2
+ok 42 - [R1] scenario sai định dạng (carried âm) -> mã thoát 2
+  ---
+  duration_ms: 47.71107
+  type: 'test'
+  ...
+# Subtest: [R1] scenario sai định dạng (carried không nguyên) -> mã thoát 2
+ok 43 - [R1] scenario sai định dạng (carried không nguyên) -> mã thoát 2
+  ---
+  duration_ms: 49.494805
+  type: 'test'
+  ...
+# Subtest: [R1] scenario sai định dạng (flames là chuỗi) -> mã thoát 2
+ok 44 - [R1] scenario sai định dạng (flames là chuỗi) -> mã thoát 2
+  ---
+  duration_ms: 40.88036
+  type: 'test'
+  ...
+# Subtest: [R1] scenario sai định dạng (flames không nguyên) -> mã thoát 2
+ok 45 - [R1] scenario sai định dạng (flames không nguyên) -> mã thoát 2
+  ---
+  duration_ms: 44.521937
+  type: 'test'
+  ...
+# Subtest: [R1] scenario sai định dạng (random_motes không phải boolean) -> mã thoát 2
+ok 46 - [R1] scenario sai định dạng (random_motes không phải boolean) -> mã thoát 2
+  ---
+  duration_ms: 39.980896
+  type: 'test'
+  ...
+# Subtest: [R1] scenario sai định dạng (random_shades không phải boolean) -> mã thoát 2
+ok 47 - [R1] scenario sai định dạng (random_shades không phải boolean) -> mã thoát 2
+  ---
+  duration_ms: 41.044325
+  type: 'test'
+  ...
+# Subtest: [R1] scenario sai định dạng (motes không phải mảng) -> mã thoát 2
+ok 48 - [R1] scenario sai định dạng (motes không phải mảng) -> mã thoát 2
+  ---
+  duration_ms: 45.630166
+  type: 'test'
+  ...
+# Subtest: [R1] scenario sai định dạng (mote pos 2 phần tử) -> mã thoát 2
+ok 49 - [R1] scenario sai định dạng (mote pos 2 phần tử) -> mã thoát 2
+  ---
+  duration_ms: 43.51596
+  type: 'test'
+  ...
+# Subtest: [R1] scenario sai định dạng (shades không phải mảng object) -> mã thoát 2
+ok 50 - [R1] scenario sai định dạng (shades không phải mảng object) -> mã thoát 2
+  ---
+  duration_ms: 46.251797
+  type: 'test'
+  ...
+# Subtest: [R1] scenario sai định dạng (shade thiếu pos) -> mã thoát 2
+ok 51 - [R1] scenario sai định dạng (shade thiếu pos) -> mã thoát 2
+  ---
+  duration_ms: 47.917308
+  type: 'test'
+  ...
+# Subtest: [R1] scenario sai định dạng (id đèn lạ) -> mã thoát 2
+ok 52 - [R1] scenario sai định dạng (id đèn lạ) -> mã thoát 2
+  ---
+  duration_ms: 48.714179
+  type: 'test'
+  ...
+# Subtest: [R1] scenario sai định dạng (lit không phải boolean) -> mã thoát 2
+ok 53 - [R1] scenario sai định dạng (lit không phải boolean) -> mã thoát 2
+  ---
+  duration_ms: 45.453501
+  type: 'test'
+  ...
+# Subtest: [R1] scenario sai định dạng (deposited âm) -> mã thoát 2
+ok 54 - [R1] scenario sai định dạng (deposited âm) -> mã thoát 2
+  ---
+  duration_ms: 43.479547
+  type: 'test'
+  ...
+# Subtest: [R1] scenario sai định dạng (time_left_s = 0) -> mã thoát 2
+ok 55 - [R1] scenario sai định dạng (time_left_s = 0) -> mã thoát 2
+  ---
+  duration_ms: 39.885325
+  type: 'test'
+  ...
+# Subtest: [R1] scenario sai định dạng (time_left_s âm) -> mã thoát 2
+ok 56 - [R1] scenario sai định dạng (time_left_s âm) -> mã thoát 2
+  ---
+  duration_ms: 41.542265
+  type: 'test'
+  ...
+# Subtest: [R1] scenario sai định dạng (time_left_s là chuỗi) -> mã thoát 2
+ok 57 - [R1] scenario sai định dạng (time_left_s là chuỗi) -> mã thoát 2
+  ---
+  duration_ms: 43.494247
+  type: 'test'
+  ...
+# Subtest: [R1] scenario không phải JSON -> mã thoát 2
+ok 58 - [R1] scenario không phải JSON -> mã thoát 2
+  ---
+  duration_ms: 48.789519
+  type: 'test'
+  ...
+# Subtest: [R1] thiếu --out -> mã thoát khác 0 (design: 1), có lỗi ở stderr
+ok 59 - [R1] thiếu --out -> mã thoát khác 0 (design: 1), có lỗi ở stderr
+  ---
+  duration_ms: 44.850518
+  type: 'test'
+  ...
+# Subtest: [R1] thiếu --ticks / --seed, --night khác 1, tham số lạ -> mã thoát 1
+ok 60 - [R1] thiếu --ticks / --seed, --night khác 1, tham số lạ -> mã thoát 1
+  ---
+  duration_ms: 165.217276
+  type: 'test'
+  ...
+# Subtest: [R1] game kết thúc sớm vẫn thoát mã 0 và end.ticks < --ticks
+ok 61 - [R1] game kết thúc sớm vẫn thoát mã 0 và end.ticks < --ticks
+  ---
+  duration_ms: 39.257794
+  type: 'test'
+  ...
+# Subtest: [R10] cùng seed, không scenario, 3000 tick -> hai file giống hệt từng byte
+ok 62 - [R10] cùng seed, không scenario, 3000 tick -> hai file giống hệt từng byte
+  ---
+  duration_ms: 114.897352
+  type: 'test'
+  ...
+# Subtest: [R10] cùng seed + inputs có di chuyển/pulse/interact -> giống hệt từng byte (kể cả id tự sinh)
+ok 63 - [R10] cùng seed + inputs có di chuyển/pulse/interact -> giống hệt từng byte (kể cả id tự sinh)
+  ---
+  duration_ms: 171.787301
+  type: 'test'
+  ...
+# Subtest: [R10] cùng seed + scenario + inputs (ví dụ PRD) -> giống hệt từng byte
+ok 64 - [R10] cùng seed + scenario + inputs (ví dụ PRD) -> giống hệt từng byte
+  ---
+  duration_ms: 88.503049
+  type: 'test'
+  ...
+# Subtest: [R10] seed khác nhau -> output khác nhau
+ok 65 - [R10] seed khác nhau -> output khác nhau
+  ---
+  duration_ms: 94.279837
+  type: 'test'
+  ...
+# Subtest: [R2] move [0,1], yaw 0, 60 tick -> z = player_speed (đi theo +Z)
+ok 66 - [R2] move [0,1], yaw 0, 60 tick -> z = player_speed (đi theo +Z)
+  ---
+  duration_ms: 48.843928
+  type: 'test'
+  ...
+# Subtest: [R2] move [1,0], yaw 0 -> đi theo +X
+ok 67 - [R2] move [1,0], yaw 0 -> đi theo +X
+  ---
+  duration_ms: 45.43347
+  type: 'test'
+  ...
+# Subtest: [R2] move [0,1], yaw 90 -> đi theo +X
+ok 68 - [R2] move [0,1], yaw 90 -> đi theo +X
+  ---
+  duration_ms: 43.83317
+  type: 'test'
+  ...
+# Subtest: [R2] move [1,0], yaw 90 -> đi theo -Z (x' = x cos + z sin, z' = -x sin + z cos)
+ok 69 - [R2] move [1,0], yaw 90 -> đi theo -Z (x' = x cos + z sin, z' = -x sin + z cos)
+  ---
+  duration_ms: 46.603331
+  type: 'test'
+  ...
+# Subtest: [R2] move [0,1], yaw 180 -> đi theo -Z
+ok 70 - [R2] move [0,1], yaw 180 -> đi theo -Z
+  ---
+  duration_ms: 46.705582
+  type: 'test'
+  ...
+# Subtest: [R2] vector [1,1] được chuẩn hóa về độ dài 1 (không nhanh hơn player_speed)
+ok 71 - [R2] vector [1,1] được chuẩn hóa về độ dài 1 (không nhanh hơn player_speed)
+  ---
+  duration_ms: 44.043725
+  type: 'test'
+  ...
+# Subtest: [R2] vector ngắn hơn 1 không bị phóng đại: [0, 0.5] đi nửa tốc độ
+ok 72 - [R2] vector ngắn hơn 1 không bị phóng đại: [0, 0.5] đi nửa tốc độ
+  ---
+  duration_ms: 38.624126
+  type: 'test'
+  ...
+# Subtest: [R2] quãng đường đi được tỉ lệ ticks: player_speed * ticks / 60
+ok 73 - [R2] quãng đường đi được tỉ lệ ticks: player_speed * ticks / 60
+  ---
+  duration_ms: 43.083075
+  type: 'test'
+  ...
+# Subtest: [R2] mép đảo bán kính 40 chặn lại, không bao giờ vượt ra ngoài
+ok 74 - [R2] mép đảo bán kính 40 chặn lại, không bao giờ vượt ra ngoài
+  ---
+  duration_ms: 49.406745
+  type: 'test'
+  ...
+# Subtest: [R2] mép đảo theo đường chéo: bị kéo về đúng bán kính 40 theo hướng tâm
+ok 75 - [R2] mép đảo theo đường chéo: bị kéo về đúng bán kính 40 theo hướng tâm
+  ---
+  duration_ms: 43.121692
+  type: 'test'
+  ...
+# Subtest: [R2] nhảy: y > 0 ngay sau khi bấm, quay về 0, không đổi vị trí XZ
+ok 76 - [R2] nhảy: y > 0 ngay sau khi bấm, quay về 0, không đổi vị trí XZ
+  ---
+  duration_ms: 40.130195
+  type: 'test'
+  ...
+# Subtest: [R3] đom đóm trong pickup_radius được nhặt: mote_picked {carried}, điểm per_mote
+ok 77 - [R3] đom đóm trong pickup_radius được nhặt: mote_picked {carried}, điểm per_mote
+  ---
+  duration_ms: 41.632405
+  type: 'test'
+  ...
+# Subtest: [R3] đom đóm ngoài pickup_radius không bị nhặt
+ok 78 - [R3] đom đóm ngoài pickup_radius không bị nhặt
+  ---
+  duration_ms: 46.098191
+  type: 'test'
+  ...
+# Subtest: [R3] đi tới đom đóm: nhặt đúng tick khi khoảng cách <= pickup_radius
+ok 79 - [R3] đi tới đom đóm: nhặt đúng tick khi khoảng cách <= pickup_radius
+  ---
+  duration_ms: 43.276355
+  type: 'test'
+  ...
+# Subtest: [R3] túi đầy (carry_capacity) thì không nhặt, đom đóm ở lại
+ok 80 - [R3] túi đầy (carry_capacity) thì không nhặt, đom đóm ở lại
+  ---
+  duration_ms: 43.542904
+  type: 'test'
+  ...
+# Subtest: [R3] còn chỗ 1: hai đom đóm cùng lúc chỉ nhặt một (id nhỏ trước), carried = capacity
+ok 81 - [R3] còn chỗ 1: hai đom đóm cùng lúc chỉ nhặt một (id nhỏ trước), carried = capacity
+  ---
+  duration_ms: 43.111317
+  type: 'test'
+  ...
+# Subtest: [R3] nhiều đom đóm cùng một bước: nhặt lần lượt, carried tăng dần, điểm = n * per_mote
+ok 82 - [R3] nhiều đom đóm cùng một bước: nhặt lần lượt, carried tăng dần, điểm = n * per_mote
+  ---
+  duration_ms: 40.858323
+  type: 'test'
+  ...
+# Subtest: [R4] interact gần đèn: deposit đúng amount, carried giảm, chưa đủ thì chưa lit
+ok 83 - [R4] interact gần đèn: deposit đúng amount, carried giảm, chưa đủ thì chưa lit
+  ---
+  duration_ms: 39.69027
+  type: 'test'
+  ...
+# Subtest: [R4] đủ lantern_cost: deposit rồi lantern_lit, lit = true, điểm per_lantern
+ok 84 - [R4] đủ lantern_cost: deposit rồi lantern_lit, lit = true, điểm per_lantern
+  ---
+  duration_ms: 45.094867
+  type: 'test'
+  ...
+# Subtest: [R4] đèn đã nạp dở: chỉ nạp phần còn thiếu (amount = min(carried, cost - deposited))
+ok 85 - [R4] đèn đã nạp dở: chỉ nạp phần còn thiếu (amount = min(carried, cost - deposited))
+  ---
+  duration_ms: 42.338146
+  type: 'test'
+  ...
+# Subtest: [R4] ngoài interact_radius thì không nạp
+ok 86 - [R4] ngoài interact_radius thì không nạp
+  ---
+  duration_ms: 38.334274
+  type: 'test'
+  ...
+# Subtest: [R4] trong interact_radius (gần biên) thì nạp được
+ok 87 - [R4] trong interact_radius (gần biên) thì nạp được
+  ---
+  duration_ms: 49.241103
+  type: 'test'
+  ...
+# Subtest: [R4] carried = 0 thì interact không có sự kiện
+ok 88 - [R4] carried = 0 thì interact không có sự kiện
+  ---
+  duration_ms: 38.262664
+  type: 'test'
+  ...
+# Subtest: [R4] interact chỉ kích hoạt ở cạnh false->true: giữ phím không nạp lại
+ok 89 - [R4] interact chỉ kích hoạt ở cạnh false->true: giữ phím không nạp lại
+  ---
+  duration_ms: 46.464327
+  type: 'test'
+  ...
+# Subtest: [R4] không nạp vào đèn đã thắp; chọn đèn CHƯA thắp gần nhất trong interact_radius
+ok 90 - [R4] không nạp vào đèn đã thắp; chọn đèn CHƯA thắp gần nhất trong interact_radius
+  ---
+  duration_ms: 40.791763
+  type: 'test'
+  ...
+# Subtest: [R4] dựng scenario có đèn lit:true sẵn không phát sự kiện, không cộng điểm
+ok 91 - [R4] dựng scenario có đèn lit:true sẵn không phát sự kiện, không cộng điểm
+  ---
+  duration_ms: 47.645767
+  type: 'test'
+  ...
+# Subtest: [R4] 4 đèn lit sẵn + nạp đèn cuối -> game_over won all_lit, end.state won, sim dừng
+ok 92 - [R4] 4 đèn lit sẵn + nạp đèn cuối -> game_over won all_lit, end.state won, sim dừng
+  ---
+  duration_ms: 43.55512
+  type: 'test'
+  ...
+# Subtest: [R4] điểm thắng = per_lantern + per_second_left*floor(time_left) + per_flame_left*flames
+ok 93 - [R4] điểm thắng = per_lantern + per_second_left*floor(time_left) + per_flame_left*flames
+  ---
+  duration_ms: 120.345031
+  type: 'test'
+  ...
+# Subtest: [R4] thắng thì có thưởng nhưng lantern_lit chỉ tính 1 lần (đèn lit sẵn không cộng)
+ok 94 - [R4] thắng thì có thưởng nhưng lantern_lit chỉ tính 1 lần (đèn lit sẵn không cộng)
+  ---
+  duration_ms: 43.037026
+  type: 'test'
+  ...
+# Subtest: [R5] Bóng Mực tiến về phía người chơi đúng shade_speed/60 mỗi tick (dọc trục)
+ok 95 - [R5] Bóng Mực tiến về phía người chơi đúng shade_speed/60 mỗi tick (dọc trục)
+  ---
+  duration_ms: 44.774706
+  type: 'test'
+  ...
+# Subtest: [R5] Bóng Mực đuổi theo đường thẳng (chéo): khoảng cách giảm đúng shade_speed/60 mỗi tick
+ok 96 - [R5] Bóng Mực đuổi theo đường thẳng (chéo): khoảng cách giảm đúng shade_speed/60 mỗi tick
+  ---
+  duration_ms: 46.836013
+  type: 'test'
+  ...
+# Subtest: [R5] Bóng Mực đuổi theo người chơi đang chạy: mục tiêu là vị trí hiện tại
+ok 97 - [R5] Bóng Mực đuổi theo người chơi đang chạy: mục tiêu là vị trí hiện tại
+  ---
+  duration_ms: 45.621444
+  type: 'test'
+  ...
+# Subtest: [R5] trúng: player_hit {by:"shade", flames, dropped = floor(carried*hit_drop_ratio)}
+ok 98 - [R5] trúng: player_hit {by:"shade", flames, dropped = floor(carried*hit_drop_ratio)}
+  ---
+  duration_ms: 208.443257
+  type: 'test'
+  ...
+# Subtest: [R5] Bóng Mực ngoài shade_hit_radius thì không gây sát thương
+ok 99 - [R5] Bóng Mực ngoài shade_hit_radius thì không gây sát thương
+  ---
+  duration_ms: 41.265344
+  type: 'test'
+  ...
+# Subtest: [R5] trong invuln_s không trúng lần 2: hai lần trúng cách nhau >= ticks(invuln_s)
+ok 100 - [R5] trong invuln_s không trúng lần 2: hai lần trúng cách nhau >= ticks(invuln_s)
+  ---
+  duration_ms: 45.037316
+  type: 'test'
+  ...
+# Subtest: [R5] nhịp trúng chính xác theo design: tick 1, 1+inv, 1+2*inv...; hết lửa -> lost no_flames
+ok 101 - [R5] nhịp trúng chính xác theo design: tick 1, 1+inv, 1+2*inv...; hết lửa -> lost no_flames
+  ---
+  duration_ms: 41.601289
+  type: 'test'
+  ...
+# Subtest: [R5] flames = 1 mà bị trúng -> player_hit flames 0 rồi game_over lost no_flames ngay tick đó
+ok 102 - [R5] flames = 1 mà bị trúng -> player_hit flames 0 rồi game_over lost no_flames ngay tick đó
+  ---
+  duration_ms: 44.770487
+  type: 'test'
+  ...
+# Subtest: [R5] không bao giờ có player_hit by "fall" (fall_enabled=false)
+ok 103 - [R5] không bao giờ có player_hit by "fall" (fall_enabled=false)
+  ---
+  duration_ms: 45.298601
+  type: 'test'
+  ...
+# Subtest: [R6] pulse: stunned_ids, carried giảm pulse_cost, Bóng Mực bị đẩy thêm pulse_push_m, điểm per_stun
+ok 104 - [R6] pulse: stunned_ids, carried giảm pulse_cost, Bóng Mực bị đẩy thêm pulse_push_m, điểm per_stun
+  ---
+  duration_ms: 42.992205
+  type: 'test'
+  ...
+# Subtest: [R6] đẩy theo hướng ra xa người chơi (chéo), mỗi Bóng Mực trong bán kính được tính điểm
+ok 105 - [R6] đẩy theo hướng ra xa người chơi (chéo), mỗi Bóng Mực trong bán kính được tính điểm
+  ---
+  duration_ms: 42.272806
+  type: 'test'
+  ...
+# Subtest: [R6] choáng kéo dài pulse_stun_s: đứng yên khi choáng, rồi về chase và đuổi lại
+ok 106 - [R6] choáng kéo dài pulse_stun_s: đứng yên khi choáng, rồi về chase và đuổi lại
+  ---
+  duration_ms: 53.958843
+  type: 'test'
+  ...
+# Subtest: [R6] biên chính xác theo design (bước 7-8): choáng ở tick 1..stun-1, chase từ tick stun
+ok 107 - [R6] biên chính xác theo design (bước 7-8): choáng ở tick 1..stun-1, chase từ tick stun
+  ---
+  duration_ms: 51.512322
+  type: 'test'
+  ...
+# Subtest: [R6] Bóng Mực đang choáng không gây sát thương
+ok 108 - [R6] Bóng Mực đang choáng không gây sát thương
+  ---
+  duration_ms: 39.42676
+  type: 'test'
+  ...
+# Subtest: [R6] pulse lần 2 trong hồi chiêu (pulse_cooldown_s) không có sự kiện, không tốn thêm
+ok 109 - [R6] pulse lần 2 trong hồi chiêu (pulse_cooldown_s) không có sự kiện, không tốn thêm
+  ---
+  duration_ms: 43.988194
+  type: 'test'
+  ...
+# Subtest: [R6] sau hồi chiêu pulse dùng lại được
+ok 110 - [R6] sau hồi chiêu pulse dùng lại được
+  ---
+  duration_ms: 42.479249
+  type: 'test'
+  ...
+# Subtest: [R6] biên hồi chiêu chính xác theo design: pulse ở tick cd-1 bị chặn, ở tick cd được phép (sự kiện tick cd+1)
+ok 111 - [R6] biên hồi chiêu chính xác theo design: pulse ở tick cd-1 bị chặn, ở tick cd được phép (sự kiện tick cd+1)
+  ---
+  duration_ms: 87.664158
+  type: 'test'
+  ...
+# Subtest: [R6] carried < pulse_cost thì pulse không có sự kiện, không choáng, không tốn
+ok 112 - [R6] carried < pulse_cost thì pulse không có sự kiện, không choáng, không tốn
+  ---
+  duration_ms: 48.452394
+  type: 'test'
+  ...
+# Subtest: [R6] giữ phím pulse không kích hoạt lặp (chỉ cạnh false->true)
+ok 113 - [R6] giữ phím pulse không kích hoạt lặp (chỉ cạnh false->true)
+  ---
+  duration_ms: 41.684243
+  type: 'test'
+  ...
+# Subtest: [R6] pulse không trúng ai vẫn tốn ánh sáng và có sự kiện với stunned_ids rỗng
+ok 114 - [R6] pulse không trúng ai vẫn tốn ánh sáng và có sự kiện với stunned_ids rỗng
+  ---
+  duration_ms: 42.877579
+  type: 'test'
+  ...
+# Subtest: [R7] Bóng Mực đuổi người chơi đứng sát đèn đã thắp không bao giờ vào trong safe_radius
+ok 115 - [R7] Bóng Mực đuổi người chơi đứng sát đèn đã thắp không bao giờ vào trong safe_radius
+  ---
+  duration_ms: 68.356304
+  type: 'test'
+  ...
+# Subtest: [R7] đèn CHƯA thắp không có vùng an toàn: Bóng Mực tới sát và gây sát thương
+ok 116 - [R7] đèn CHƯA thắp không có vùng an toàn: Bóng Mực tới sát và gây sát thương
+  ---
+  duration_ms: 54.854552
+  type: 'test'
+  ...
+# Subtest: [R7] Bóng Mực đang nằm trong safe_radius của đèn đã thắp bị đẩy ra ngay sau bước đầu
+ok 117 - [R7] Bóng Mực đang nằm trong safe_radius của đèn đã thắp bị đẩy ra ngay sau bước đầu
+  ---
+  duration_ms: 40.237839
+  type: 'test'
+  ...
+# Subtest: [R8] time_left_s nhỏ -> game_over lost dawn, end.ticks đúng
+ok 118 - [R8] time_left_s nhỏ -> game_over lost dawn, end.ticks đúng
+  ---
+  duration_ms: 138.70718
+  type: 'test'
+  ...
+# Subtest: [R8] hết đêm mặc định (night1_duration_s) không thắp đèn -> lost dawn tại tick duration*60
+ok 119 - [R8] hết đêm mặc định (night1_duration_s) không thắp đèn -> lost dawn tại tick duration*60
+  ---
+  duration_ms: 78.211414
+  type: 'test'
+  ...
+# Subtest: [R8] thắp xong đèn cuối đúng lúc còn thời gian thì thắng chứ không thua dawn
+ok 120 - [R8] thắp xong đèn cuối đúng lúc còn thời gian thì thắng chứ không thua dawn
+  ---
+  duration_ms: 40.556883
+  type: 'test'
+  ...
+# Subtest: [R9] điểm trong snapshot và end = tổng điểm từ sự kiện (nhặt, tỏa sáng, thắp đèn, thưởng thắng)
+ok 121 - [R9] điểm trong snapshot và end = tổng điểm từ sự kiện (nhặt, tỏa sáng, thắp đèn, thưởng thắng)
+  ---
+  duration_ms: 41.123761
+  type: 'test'
+  ...
+# Subtest: [R9] ván thua: điểm chỉ gồm sự kiện, không có thưởng thời gian/máu
+ok 122 - [R9] ván thua: điểm chỉ gồm sự kiện, không có thưởng thời gian/máu
+  ---
+  duration_ms: 38.494799
+  type: 'test'
+  ...
+# Subtest: [R9] ván ngẫu nhiên dài (seed cố định, di chuyển + pulse + interact): điểm luôn khớp bảng điểm
+ok 123 - [R9] ván ngẫu nhiên dài (seed cố định, di chuyển + pulse + interact): điểm luôn khớp bảng điểm
+  ---
+  duration_ms: 192.254442
+  type: 'test'
+  ...
+# Subtest: [R10] Bóng Mực ngẫu nhiên sinh thêm mỗi 1200 tick với sự kiện shade_spawned, id nối tiếp S3, S4
+ok 124 - [R10] Bóng Mực ngẫu nhiên sinh thêm mỗi 1200 tick với sự kiện shade_spawned, id nối tiếp S3, S4
+  ---
+  duration_ms: 67.39794
+  type: 'test'
+  ...
+# Subtest: [R10] random_shades:false / random_motes:false: không bao giờ tự sinh
+ok 125 - [R10] random_shades:false / random_motes:false: không bao giờ tự sinh
+  ---
+  duration_ms: 45.226691
+  type: 'test'
+  ...
+# Subtest: [R10] đom đóm ngẫu nhiên được bổ sung khi < 20: sau khi nhặt bớt, số đom đóm tăng lại
+ok 126 - [R10] đom đóm ngẫu nhiên được bổ sung khi < 20: sau khi nhặt bớt, số đom đóm tăng lại
+  ---
+  duration_ms: 55.630374
+  type: 'test'
+  ...
+1..126
+# tests 126
+# suites 0
+# pass 126
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 3881.459829

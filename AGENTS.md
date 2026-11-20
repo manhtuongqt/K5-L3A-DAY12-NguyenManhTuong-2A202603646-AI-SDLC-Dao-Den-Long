@@ -8,9 +8,17 @@ Game 3D góc nhìn thứ ba, làm qua 4 phase (lab Day 12 AI SDLC). Đề từng
 - Người review không phải người viết code.
 
 ## Lệnh
-- Build: _(cập nhật khi chọn engine)_
-- Test + scenario headless: _(cập nhật khi chọn engine)_
-- Chạy game: _(cập nhật khi chọn engine)_
+- Cài đặt: `npm ci`
+- Test (headless, black-box): `npm test`
+- Headless: `node src/headless.js --seed 1 --night 1 --ticks 600 --out out.jsonl [--scenario f] [--inputs f]`
+- Chạy game: `npm run dev` (http://localhost:5173, `?seed=N&autostart=1`)
+- Build web: `npm run build`
+
+## Cấu trúc
+- `src/sim/`: logic thuần, không DOM, không Math.random/Date. Tuning chỉ đọc từ `game.contract.json`.
+- `src/client/`: chỉ hiển thị và input; không đổi luật.
+- `tests/`: test black-box qua CLI, viết từ đặc tả, không viết theo code.
+- `docs/notes/phase-N-*.md`: đề và đặc tả từng phase. `docs/proof/`: bằng chứng.
 
 ## Luật bắt buộc
 - Chỉ sửa file trong repo này.
