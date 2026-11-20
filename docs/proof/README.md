@@ -73,6 +73,7 @@ Chạy lại: `scripts/verify.sh docs/proof/phase-4` → [verify.txt](phase-4/ve
 | P4-1c | Ngưỡng bench (tự đo, Intel UHD CML GT2, i7-10610U, Linux, vsync tắt) | `node scripts/bench.mjs --seed 42 --duration 30` | [bench.json](../../bench.json) | avg_fps 84.1 **đạt**, load_ms 2107 **đạt**, p1_low_fps 5.8 **chưa đạt** trên máy này |
 | P4-2 | Soak 10 Đêm, crashes 0, mem_end ≤ 1.2 × mem_start | soak_cmd | [soak.json](../../soak.json) (45.3 → 49.4 MB), [ADR 0002](../adr/0002-soak-memory-and-v8-jit.md) | Đạt (với `--no-opt --no-maglev`; Node mặc định trượt, số liệu trong ADR) |
 | P4-3 | Bảng xếp hạng: validate tên (cả tiếng Việt), top 10, sắp xếp, tie, ISO có múi giờ, lưu đĩa, export | `tests/leaderboard.test.js`, `tests/play-export.test.js` + chạy export tay | test-report | Đạt (logic có test; màn hình nhập tên/xem bảng: người dùng chơi thử xác nhận 2026-11-20, không có ảnh) |
+| P4-3b | Màn hình Bảng xếp hạng từ menu chính, hướng dẫn phím theo phím đã gán, chữ ≥ 18 px | Ảnh người dùng chụp khi chơi thử | [p4-main-menu-playtest.png](phase-4/p4-main-menu-playtest.png) | Đạt |
 | P4-4 | Đổi phím, phụ đề/chỉ báo, giảm chuyển động, chữ ≥ 18 px, chữ lớn | Code + build | `src/client/` | Đạt (người dùng chơi thử xác nhận 2026-11-20, không có ảnh) |
 | P4-5 | 3 lệnh cài đặt, Release v1.0.0 | Clone sạch → `npm ci && npm run build && npm start` | Release v1.0.0 | Xem mục Release |
 | P4-6 | Hồi quy v1.0–v1.2 | verify.sh | verify.txt | Đạt |
