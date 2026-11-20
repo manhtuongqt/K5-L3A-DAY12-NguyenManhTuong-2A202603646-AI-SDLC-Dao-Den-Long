@@ -1,0 +1,8 @@
+# Kiểm tay luật bình minh (lead, độc lập với worker)
+Scenario: L1 lit (fuel mặc định 100), L2 fuel 50, L3 fuel 50, time_left_s 10, Đêm 1
+Mong đợi: 600 tick, 3/5 đèn sáng ≥ ceil(0.6×5)=3 → won dawn_survived; điểm = (50+90)+(50+40)+(50+40)+3×50 = 470
+Thực tế:
+{"type":"event","tick":600,"name":"game_over","data":{"result":"won","reason":"dawn_survived"}}
+{"type":"end","ticks":600,"state":"won","score":470}
+
+Đối chứng: L3 fuel 5 → lantern_out ở tick 300, 2/5 đèn → lost dawn, điểm 0 (đã chạy, khớp).

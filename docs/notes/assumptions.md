@@ -2,6 +2,9 @@
 
 Mỗi phase: chỗ mơ hồ trong đề, giả định đã chọn, lý do. Luật chi tiết: [phase-1-design.md](phase-1-design.md).
 
+## Phase 3
+Ticket-03 thay luật đèn, vùng an toàn, luật thắng và điểm. Mô hình trạng thái đèn mới, luật thắng ở bình minh và 9 chỗ lead tự quyết (Bóng wander chọn đèn yếu → đèn tắt → ngẫu nhiên; bộ đếm `fuel_drain`; scenario `lit:true` mặc định `ever_lit`…): [ADR 0001](../adr/0001-lantern-fuel-and-dawn-win.md). Tiêu chí nghiệm thu P3-1..P3-7: [docs/proof/README.md](../proof/README.md) mục Phase 3.
+
 ## Phase 2
 Ticket-02 thay toàn bộ số tự chọn của Phase 1 bằng số chuẩn. Bảng luật cũ bị thay, các chỗ lead tự quyết (điểm xuất phát Đêm 3 `(0,0,−25)` vì `(0,0,0)` nằm trong tháp chuông; thời điểm gió; định dạng snapshot…) và tiêu chí nghiệm thu P2-1..P2-16: [phase-2-design.md](phase-2-design.md) mục 1, 9, 11.
 

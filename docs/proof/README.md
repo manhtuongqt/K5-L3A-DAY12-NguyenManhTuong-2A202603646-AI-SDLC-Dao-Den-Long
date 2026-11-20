@@ -48,4 +48,19 @@ Chạy lại: `scripts/verify.sh docs/proof/phase-2` → [verify.txt](phase-2/ve
 
 Ảnh chụp bằng Chrome headless dựng hình phần mềm (swiftshader), nên FPS hiển thị trong ảnh (2–3) không phải FPS thật. Agent không đo được trên GPU (môi trường chạy lệnh không có WebGL); số đo FPS thật do người dùng đọc trên máy mình, không có ảnh kèm.
 
+## Phase 3 (tag `phase-3`, Contract v1.2)
+Chạy lại: `scripts/verify.sh docs/proof/phase-3` → [verify.txt](phase-3/verify.txt), [test-report.tap](phase-3/test-report.tap) (266/266). Quyết định: [ADR 0001](../adr/0001-lantern-fuel-and-dawn-win.md). Breaking changes: [CHANGELOG.md](../../CHANGELOG.md). Test cũ bị thay: [test-changes-phase-3.md](../notes/test-changes-phase-3.md) (19 test sửa, không skip).
+
+| # | Yêu cầu (mục ticket) | Cách kiểm chứng | Bằng chứng | Kết quả |
+|---|---|---|---|---|
+| P3-1 | Nhiên liệu: hao 1/s, châm dầu `ceil`, chọn đèn nhận được, hết dầu tắt, thắp lại 5 | `headless.v12.test.js` [P3-1] (15 test) | test-report.tap | Đạt |
+| P3-2 | Bóng hút dầu: mất vùng an toàn khi fuel < 30, wander chọn đèn yếu, drain cộng dồn, chuyển trạng thái, đuổi khi châm ≥ 30 | [P3-2] (14 test) + ảnh | test-report.tap, [p3-fuel-drain.png](phase-3/p3-fuel-drain.png) | Đạt |
+| P3-3 | Thắng ở bình minh ≥ ceil(0.6 × đèn), không thắng sớm, no_flames trước | [P3-3] 3 đêm + kiểm tay | test-report.tap, [hand-check-dawn.txt](phase-3/hand-check-dawn.txt) | Đạt |
+| P3-4 | Sức chứa 10 + 2 × successful_lights, tối đa 20 | [P3-4] + HUD | test-report.tap, [p3-colorblind.png](phase-3/p3-colorblind.png) (6/10) | Đạt |
+| P3-5 | Điểm mới (+5, +100, +40, +5/+15, bình minh 50 + floor(fuel), 50/lửa) | [P3-5] + kiểm tay ra 470 | test-report.tap, hand-check-dawn.txt | Đạt |
+| P3-6 | Chế độ mù màu: Bóng #00B3FF, cảnh báo trắng + ⚠, đèn tắt xẹp + rách | Ảnh khi bật cài đặt | [p3-colorblind.png](phase-3/p3-colorblind.png) | Đạt một phần: thấy viền Bóng xanh; chưa có ảnh cận đèn tắt xẹp/rách và cảnh báo ⚠ |
+| P3-7 | Contract v1.2: tuning, snapshot, scenario, sự kiện mới | [P3-7] | test-report.tap | Đạt |
+| P3-UI | Thanh dầu, nhấp nháy 1 Hz khi < 30 | Code client + ảnh | p3-fuel-drain.png | Chưa kiểm chứng rõ: khung hình cắt phần trên đèn, không thấy thanh dầu |
+| Hồi quy | Test Phase 1–2 không bị thay vẫn đạt; 21 600 tick ≤ 30 s; tất định | verify.sh | verify.txt (0.4 / 0.6 / 0.7 s) | Đạt |
+
 Kiểm chứng độc lập: test do một agent (Claude Sonnet) viết chỉ từ đặc tả, không đọc code game; code game do agent khác (Codex gpt-6.1-sol) viết; lead (Claude Opus) chạy lại và xem ảnh.

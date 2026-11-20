@@ -13,5 +13,11 @@
 - **Harness đã chỉnh:** thêm `verify.sh`, skill `verify-proof`, hook Stop chặn kết thúc khi test đỏ, AGENTS.md cho phạm vi v1.1.
 - **Cần chỉnh:** token Sonnet quá cao (~334k cho test + client). Phase 3 chuyển code sang Codex.
 
+### Phase 3
+- **Đạt:** P3-1 tới P3-5, P3-7 (266/266 test, kiểm tay luật bình minh khớp 470 điểm); hồi quy Phase 1–2 không bị thay vẫn đạt; tất định; ≤ 0.8 s/đêm.
+- **Đạt một phần / chưa kiểm chứng rõ:** chế độ mù màu mới có ảnh viền Bóng xanh, chưa có ảnh cận đèn tắt xẹp/rách và cảnh báo ⚠; thanh dầu chưa thấy rõ trong ảnh.
+- **Thay đổi yêu cầu:** ghi ADR 0001 (mô hình trạng thái đèn + luật thắng), CHANGELOG breaking changes, 19 test cũ sửa có lý do, không skip.
+- **Cần chỉnh:** không dùng chế độ fast của Codex; chụp ảnh client cần đặt camera để thấy cận đèn.
+
 ## Tổng kết dự án
 _(số liệu, bài học, nếu làm lại thì đổi gì)_

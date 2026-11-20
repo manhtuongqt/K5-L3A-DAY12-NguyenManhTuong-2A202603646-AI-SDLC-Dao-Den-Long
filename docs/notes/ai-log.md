@@ -16,6 +16,15 @@ Số token worker lấy từ báo cáo của công cụ (Codex in `tokens used`;
 | 2 | Claude Sonnet (B) | Client: menu, pause, âm thanh, HUD, địa hình | ~182 000 | Tích lũy 335 572 trừ Phase 1 |
 | 2 | Claude Opus (lead) | Đọc ticket, đặc tả v1.1, review, bằng chứng, hook | ~90 000 (ước tính) | |
 
+| 2+ | Codex gpt-6.1-sol | Làm lại hình Mây + đom đóm (sáng tạo, client) | 152 947 | Đắt hơn dự kiến (20–40k): phải đọc client lớn do Sonnet viết |
+| 3 | Codex gpt-6.1-sol (fast) | Sim + headless v1.2 | 95 188 | Chế độ fast; xong trước khi bị dừng |
+| 3 | Codex gpt-6.1-sol (fast) | Test v1.2 + client (lần 1) | không rõ | Người dùng yêu cầu tắt fast vì đốt token; lead dừng giữa chừng, không có số đếm |
+| 3 | Codex gpt-6.1-sol | Test v1.2 (làm tiếp từ diff) | 105 897 | 56 test mới, 19 test cũ sửa, 266/266 |
+| 3 | Codex gpt-6.1-sol | Client v1.2 (làm tiếp từ diff) | 82 693 | Thanh dầu, mù màu, HUD |
+| 3 | Claude Opus (lead) | Ticket, ADR, changelog, contract, kiểm tay, bằng chứng | ~70 000 (ước tính) | |
+
+**Bài học token sau Phase 3:** chế độ `service_tier="fast"` không đáng: tốn quota nhanh mà phase 30 phút vẫn kịp ở chế độ thường. Khi phải dừng worker giữa chừng, cho phiên mới đọc `git diff` và làm tiếp thay vì làm lại từ đầu.
+
 **Bài học token sau Phase 2:** Sonnet tốn gấp 2–3 lần Codex cho khối việc tương đương. Từ Phase 3: code (kể cả client) giao Codex; test độc lập giao một phiên Codex riêng không được đọc `src/`; Sonnet chỉ dùng khi thật cần.
 
 Cách tiết kiệm: lead tự đọc 6 file đề (nhỏ) thay vì giao agent; đặc tả viết một lần, dùng chung cho cả người viết code và người viết test; giao việc song song theo vùng file để không phải làm lại; dùng Codex cho phần logic cần chính xác vì tốn ít token nhất.
@@ -28,6 +37,10 @@ Cách tiết kiệm: lead tự đọc 6 file đề (nhỏ) thay vì giao agent; 
 | 2 | Lead (Claude Opus) | Đo hiệu năng "21 600 tick" nhưng ván thua sớm ở tick 1 269–2 180, số đo vô nghĩa | Đọc dòng `end` thấy `ticks` < 21 600 | `verify.sh` dùng scenario `perf-full-night.json` giữ ván chạy đủ đêm |
 | 2 | Claude Sonnet (A) | 2 test sai: đường đi vô tình dẫm bục nhảy; đo `vy` lệch 1 tick | Test đỏ khi chạy với code; tự phân tích, kết luận test sai | Sửa test, ghi trong báo cáo; code không bị sửa theo test |
 | 2 | Hệ thống | Chrome do agent mở không có WebGL, không đo được FPS thật | Ảnh chụp báo lỗi WebGL | Người dùng đo FPS trên máy có GPU; ghi rõ nguồn số đo |
+| 2 | Người dùng / lead | Người dùng muốn dùng ảnh ca sĩ thật làm Mây | Lead đối chiếu RULES mục 8, 10 (bản quyền, dữ liệu cá nhân, nhân vật gốc) | Từ chối dùng ảnh; làm thiết kế gốc lấy cảm hứng phong cách, không mặt người thật |
+| 3 | Lead (Claude Opus) | `pkill -f` khớp cả chính lệnh shell của lead, làm lệnh dừng worker báo lỗi | Exit code 144 | Dừng theo PID; ghi vào bộ nhớ |
+| 3 | Lead (Claude Opus) | Contract v1.2 lúc đầu còn khối `score` cũ (per_mote 10, thưởng thời gian) | Tự rà lại file sau khi sửa | Sửa ngay trước khi giao worker |
+| 3 | Codex (test) | 1 test kỳ vọng sai số đom đóm sau châm dầu | Test đỏ; tự đối chiếu ticket | Sửa test theo ticket, code giữ nguyên |
 
 ## Lời nhắc chính
 Lời giao việc cho worker nằm trong lịch sử phiên; mỗi lời giao gồm: file cần đọc, việc cần làm, phạm vi file được sửa, cách tự kiểm tra, mẫu báo cáo.
