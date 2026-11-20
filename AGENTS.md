@@ -16,7 +16,13 @@ Game 3D góc nhìn thứ ba, làm qua 4 phase (lab Day 12 AI SDLC). Đề từng
 - Kiểm chứng đầy đủ + lưu bằng chứng: `scripts/verify.sh docs/proof/phase-N` (skill `verify-proof`)
 - Hook Stop (`.claude/hooks/stop-verify.sh`): có thay đổi chưa commit ở `src/`/`tests/` mà `npm test` đỏ thì không được kết thúc.
 
-## Phạm vi hiện tại: Phase 2 (Contract v1.1)
+## Phạm vi hiện tại: Phase 3 (Contract v1.2)
+- Ticket-03 thay luật đèn, vùng an toàn, luật thắng, điểm. Nguồn chính: `docs/notes/phase-3-ticket.md`; quyết định: `docs/adr/0001-lantern-fuel-and-dawn-win.md`; breaking changes: `CHANGELOG.md`.
+- Nhiên liệu tính bằng số nguyên đơn vị 1/60 (`fuel60`), chỉ làm tròn khi xuất.
+- Test bị thay: sửa/xóa kèm lý do trong `docs/notes/test-changes-phase-3.md`, không skip.
+- Worker mặc định: Codex (`codex exec -m gpt-6.1-sol -c 'service_tier="fast"'`); test độc lập do một phiên Codex khác viết, không đọc `src/`.
+
+## Phase 2 (Contract v1.1)
 - 3 Đêm (`--night 1|2|3`), số chuẩn của ticket thay mọi số tự chọn. Nguồn chính: `docs/notes/phase-2-ticket.md`; chỗ lead chốt: `docs/notes/phase-2-design.md`.
 - Thứ tự 12 bước mỗi tick của ticket là bắt buộc. Bản đồ trong `src/sim/maps.js` dùng chung cho sim và client.
 - Sáng tạo thêm chỉ ở client; không đổi output headless.
