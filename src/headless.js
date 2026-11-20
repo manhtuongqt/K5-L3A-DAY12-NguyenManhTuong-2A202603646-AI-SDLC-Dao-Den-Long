@@ -26,7 +26,7 @@ function parseArguments(args) {
   }
   options.seed = integer('seed', Number.MIN_SAFE_INTEGER);
   options.night = integer('night', 1);
-  if (options.night !== 1) throw new Error('Only --night 1 is supported');
+  if (options.night > 3) throw new Error('--night must be 1, 2 or 3');
   options.ticks = integer('ticks', 0);
   options['snapshot-every'] = Object.hasOwn(options, 'snapshot-every')
     ? integer('snapshot-every', 1) : 10;
@@ -48,17 +48,18 @@ async function main() {
   const options = parseArguments(process.argv.slice(2));
   const contract = JSON.parse(await readFile(new URL('../game.contract.json', import.meta.url), 'utf8'));
   const scenario = options.scenario === undefined ? undefined
-    : await readScenarioOrInputs(options.scenario, validateScenario);
+    : await readScenarioOrInputs(options.scenario, (value) => validateScenario(value, options.night));
   const inputs = options.inputs === undefined ? { frames: [] }
     : await readScenarioOrInputs(options.inputs, validateInputs);
-  const game = createGame({ seed: options.seed, tuning: contract.tuning, scenario });
-  const lines = [JSON.stringify(game.snapshot())];
-  const input = { move: [0, 0], cam_yaw_deg: 0, jump: false, interact: false, pulse: false };
+  const game = createGame({ seed: options.seed, night: options.night, tuning: contract.tuning, scenario });
+  const lines = [JSON.stringify(game.snapshot()),
+    JSON.stringify({ type: 'event', tick: 0, name: 'night_start', data: { night: options.night } })];
+  const input = { move: [0, 0], cam_yaw_deg: 0, jump: false, dash: false, interact: false, pulse: false, pause: false };
   let frameIndex = 0;
   while (game.steps < options.ticks && !game.ended) {
     const frame = inputs.frames[frameIndex];
     if (frame && frame.tick === game.steps) {
-      for (const field of ['move', 'cam_yaw_deg', 'jump', 'interact', 'pulse']) {
+      for (const field of ['move', 'cam_yaw_deg', 'jump', 'dash', 'interact', 'pulse', 'pause']) {
         if (Object.hasOwn(frame, field)) input[field] = frame[field];
       }
       frameIndex += 1;
