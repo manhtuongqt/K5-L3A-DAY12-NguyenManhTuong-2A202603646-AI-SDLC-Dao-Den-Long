@@ -25,3 +25,4 @@ dist/
 
 # Local Claude settings
 .claude/settings.local.json
+data/
