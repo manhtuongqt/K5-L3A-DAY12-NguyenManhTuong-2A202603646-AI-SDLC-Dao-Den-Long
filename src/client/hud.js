@@ -1,48 +1,54 @@
-// HUD tiếng Việt: chỉ ghi DOM khi giá trị đổi.
+// HUD tiếng Việt theo ticket: chỉ ghi DOM khi giá trị đổi.
 const FLAME_SVG =
   '<svg class="flame on" viewBox="0 0 24 28" aria-hidden="true"><path d="M12 1c1 5 8 8 8 16a8 8 0 0 1-16 0c0-4 2-6 4-9 1 2 2 3 3 3-1-4-1-7 1-10z"/></svg>';
-
-const END_TEXT = {
-  all_lit: ['Thắng!', 'Cả 5 Đèn Lồng Lớn đã sáng. Đảo Bến lại ấm áp như xưa.'],
-  dawn: ['Bình minh đã đến', 'Trời sáng trước khi bạn thắp hết các đèn. Đêm sau hãy thử lại nhé.'],
-  no_flames: ['Hết lửa rồi', 'Ngọn lửa của Mây đã tắt dưới màn sương. Đứng dậy thử lại nào.'],
-};
 
 export function createHud(tuning) {
   const $ = (id) => document.getElementById(id);
   const el = {
-    hud: $('hud'), flames: $('flames'), carried: $('carried'), time: $('time'),
+    hud: $('hud'), flames: $('flames'), time: $('time'), night: $('nightLabel'),
     lit: $('lit'), pips: $('lanternPips'), score: $('score'),
-    toasts: $('toasts'), prompt: $('prompt'),
-    pulse: $('pulse'), pulseRing: document.querySelector('.pulse-ring'), pulseState: $('pulseState'),
-    hit: $('hit'),
-    intro: $('intro'), end: $('end'), endTitle: $('endTitle'), endReason: $('endReason'),
-    endScore: $('endScore'), endLit: $('endLit'), endFlames: $('endFlames'),
-    startBtn: $('startBtn'), restartBtn: $('restartBtn'), glError: $('glError'),
+    toasts: $('toasts'), prompt: $('prompt'), windWarn: $('windWarn'),
+    carried: $('carried'), moteBar: $('moteBar'),
+    skillDash: $('skillDash'), skillPulse: $('skillPulse'), skillCharm: $('skillCharm'),
+    dashState: $('dashState'), pulseState: $('pulseState'), charmState: $('charmState'),
+    arrow: $('arrow'), arrowDist: $('arrowDist'), hit: $('hit'), fps: $('fps'),
   };
   const cache = {};
   const set = (key, node, text) => {
     if (cache[key] !== text) { cache[key] = text; node.textContent = text; }
   };
+  const toggle = (key, node, cls, on) => {
+    if (cache[key] !== on) { cache[key] = on; node.classList.toggle(cls, on); }
+  };
 
-  const maxFlames = tuning.flames;
-  el.flames.innerHTML = FLAME_SVG.repeat(maxFlames);
+  el.flames.innerHTML = FLAME_SVG.repeat(tuning.flames);
   const flameNodes = [...el.flames.querySelectorAll('.flame')];
-
+  const cap = tuning.carry_capacity;
+  el.moteBar.innerHTML = '<span class="cell"></span>'.repeat(cap);
+  const cells = [...el.moteBar.querySelectorAll('.cell')];
   let pipNodes = [];
-  function ensurePips(n) {
+  const ensurePips = (n) => {
     if (pipNodes.length === n) return;
     el.pips.innerHTML = '<span class="pip"></span>'.repeat(n);
     pipNodes = [...el.pips.querySelectorAll('.pip')];
+    for (const k of Object.keys(cache)) if (k.startsWith('p')) delete cache[k];
+  };
+
+  function skill(key, node, ring, cd, total, state) {
+    const p = cd > 0 ? Math.round(100 * (1 - cd / total)) : 100;
+    if (cache[key + 'p'] !== p) { cache[key + 'p'] = p; node.querySelector('.ring').style.setProperty('--p', p); }
+    toggle(key + 'c', node, 'cooling', cd > 0);
+    toggle(key + 'e', node, 'empty', state === 'empty');
+    toggle(key + 'r', node, 'ready', state === 'ready');
   }
 
   return {
     el,
     showHud(v) { el.hud.hidden = !v; },
-    showIntro(v) { el.intro.hidden = !v; },
-    showError(msg) { el.glError.hidden = false; el.glError.textContent = msg; },
+    showFps(v) { el.fps.hidden = !v; },
+    setFps(text) { set('fps', el.fps, text); },
 
-    // v: { snap, timeLeft, pulseCd, canPulse, prompt }
+    // v: { snap, night, nightName, timeLeft, prompt, arrow, windWarn }
     update(v) {
       const s = v.snap;
       for (let i = 0; i < flameNodes.length; i++) {
@@ -53,7 +59,11 @@ export function createHud(tuning) {
           flameNodes[i].classList.toggle('off', !on);
         }
       }
-      set('carried', el.carried, `${s.player.carried}/${tuning.carry_capacity}`);
+      set('carried', el.carried, `${s.player.carried}/${cap}`);
+      for (let i = 0; i < cap; i++) {
+        const on = i < s.player.carried;
+        if (cache['c' + i] !== on) { cache['c' + i] = on; cells[i].classList.toggle('on', on); }
+      }
       const nLan = s.lanterns.length;
       const nLit = s.lanterns.filter((l) => l.lit).length;
       set('lit', el.lit, `${nLit}/${nLan}`);
@@ -63,33 +73,51 @@ export function createHud(tuning) {
         if (cache['p' + i] !== on) { cache['p' + i] = on; pipNodes[i].classList.toggle('on', on); }
       }
       set('score', el.score, String(s.score));
+      set('night', el.night, `Đêm ${v.night} · ${v.nightName}`);
+
       const secs = Math.max(0, Math.ceil(v.timeLeft - 1e-9));
       const mm = String(Math.floor(secs / 60)).padStart(2, '0');
       const ss = String(secs % 60).padStart(2, '0');
       set('time', el.time, `${mm}:${ss}`);
-      const low = secs <= 30;
-      if (cache.low !== low) { cache.low = low; el.time.classList.toggle('low', low); }
+      toggle('low', el.time, 'low', secs <= 30); // ≤ 30 s: đỏ #FF5A5F, nhấp nháy
 
-      // tỏa sáng
-      let state; let cls;
-      if (v.pulseCd > 0) { state = `Hồi chiêu ${v.pulseCd.toFixed(1)}s`; cls = 'cooling'; }
-      else if (!v.canPulse) { state = `Cần ${tuning.pulse_cost} đom đóm`; cls = 'empty'; }
-      else { state = 'Sẵn sàng'; cls = 'ready'; }
-      set('pstate', el.pulseState, state);
-      if (cache.pcls !== cls) {
-        cache.pcls = cls;
-        el.pulse.className = `pulse ${cls}`;
+      // hồi chiêu lấy từ snapshot
+      const p = s.player;
+      const dashCd = p.dash_cd_s || 0;
+      set('ds', el.dashState, dashCd > 0 ? `Hồi ${dashCd.toFixed(1)}s` : 'Sẵn sàng');
+      skill('d', el.skillDash, null, dashCd, tuning.dash_cooldown_s, dashCd > 0 ? 'cool' : 'ready');
+      const pulseCd = p.pulse_cd_s || 0;
+      const enough = p.carried >= tuning.pulse_cost;
+      let pst = 'ready';
+      let ptxt = 'Sẵn sàng';
+      if (pulseCd > 0) { pst = 'cool'; ptxt = `Hồi ${pulseCd.toFixed(1)}s`; }
+      else if (!enough) { pst = 'empty'; ptxt = `Cần ${tuning.pulse_cost} đom đóm`; }
+      set('ps', el.pulseState, ptxt);
+      skill('u', el.skillPulse, null, pulseCd, tuning.pulse_cooldown_s, pst);
+      const charm = p.charm_s || 0;
+      el.skillCharm.hidden = !(charm > 0);
+      if (charm > 0) {
+        set('cs', el.charmState, `${charm.toFixed(1)}s`);
+        const cp = Math.min(100, Math.round((charm / 10) * 100));
+        if (cache.cp !== cp) { cache.cp = cp; el.skillCharm.querySelector('.ring').style.setProperty('--p', cp); }
       }
-      const p = v.pulseCd > 0 ? Math.round(100 * (1 - v.pulseCd / tuning.pulse_cooldown_s)) : 100;
-      if (cache.pp !== p) { cache.pp = p; el.pulseRing.style.setProperty('--p', p); }
 
-      // gợi ý nạp đèn
       const pr = v.prompt || '';
       if (cache.prompt !== pr) {
         cache.prompt = pr;
         el.prompt.hidden = !pr;
         el.prompt.textContent = pr;
       }
+      if (cache.ww !== !!v.windWarn) { cache.ww = !!v.windWarn; el.windWarn.hidden = !v.windWarn; }
+
+      const a = v.arrow;
+      if (a) {
+        el.arrow.hidden = false;
+        el.arrow.style.left = `${a.x}px`;
+        el.arrow.style.top = `${a.y}px`;
+        el.arrow.style.setProperty('--rot', `${a.angle}rad`);
+        set('adist', el.arrowDist, `${Math.round(a.dist)} m`);
+      } else if (!el.arrow.hidden) el.arrow.hidden = true;
     },
 
     toast(text, kind = 'good') {
@@ -101,23 +129,10 @@ export function createHud(tuning) {
       setTimeout(() => d.remove(), 2700);
     },
     clearToasts() { el.toasts.innerHTML = ''; },
-
     hitFlash() {
       el.hit.classList.remove('flash');
       void el.hit.offsetWidth;
       el.hit.classList.add('flash');
     },
-
-    showEnd(result, reason, snap) {
-      const [title, text] = END_TEXT[reason] || (result === 'won' ? END_TEXT.all_lit : END_TEXT.no_flames);
-      el.endTitle.textContent = title;
-      el.endTitle.className = result === 'won' ? '' : 'lost';
-      el.endReason.textContent = text;
-      el.endScore.textContent = String(snap.score);
-      el.endLit.textContent = `${snap.lanterns.filter((l) => l.lit).length}/${snap.lanterns.length}`;
-      el.endFlames.textContent = String(snap.player.flames);
-      el.end.hidden = false;
-    },
-    hideEnd() { el.end.hidden = true; },
   };
 }

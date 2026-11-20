@@ -1,5 +1,6 @@
 // Hiệu ứng ngắn: vòng sáng tỏa, bùng sáng, tia lửa nhỏ. Tọa độ sim.
 import * as THREE from 'three';
+import { PAL } from './palette.js';
 
 const ringGeo = new THREE.RingGeometry(0.9, 1, 72);
 const domeGeo = new THREE.SphereGeometry(1, 28, 16, 0, Math.PI * 2, 0, Math.PI / 2);
@@ -22,7 +23,7 @@ export function createEffects(root, tuning, glowTex) {
   }
 
   // vòng sáng lan ra tới pulse_radius khi tỏa sáng
-  function ring(pos, radius, life, color = 0xffd27a) {
+  function ring(pos, radius, life, color = PAL.moteHalo) {
     const m = new THREE.Mesh(ringGeo, additive(color, 0.9));
     m.rotation.x = -Math.PI / 2;
     m.position.set(pos[0], 0.1, pos[2]);
@@ -33,7 +34,7 @@ export function createEffects(root, tuning, glowTex) {
     });
   }
 
-  function dome(pos, radius, life, color = 0xffc860) {
+  function dome(pos, radius, life, color = PAL.lampOn) {
     const m = new THREE.Mesh(domeGeo, additive(color, 0.3));
     m.position.set(pos[0], 0, pos[2]);
     addMesh(m, life, (e, k) => {
@@ -43,7 +44,7 @@ export function createEffects(root, tuning, glowTex) {
     });
   }
 
-  function glowPop(pos, size, life, color = 0xffd27a, height = 1.0) {
+  function glowPop(pos, size, life, color = PAL.moteHalo, height = 1.0) {
     const s = new THREE.Sprite(new THREE.SpriteMaterial({
       map: glowTex, color, transparent: true, opacity: 1,
       depthWrite: false, blending: THREE.AdditiveBlending,
@@ -55,7 +56,7 @@ export function createEffects(root, tuning, glowTex) {
     });
   }
 
-  function sparks(pos, count = 7, color = 0xffd36a) {
+  function sparks(pos, count = 7, color = PAL.moteHalo) {
     for (let i = 0; i < count; i++) {
       const s = new THREE.Sprite(new THREE.SpriteMaterial({
         map: glowTex, color, transparent: true, opacity: 1,
@@ -76,28 +77,45 @@ export function createEffects(root, tuning, glowTex) {
     }
   }
 
+  // vệt lướt: vài bóng mờ của Mây rải ngược hướng lướt
+  function dash(pos, angle) {
+    const dx = Math.sin(angle); const dz = Math.cos(angle);
+    for (let i = 0; i < 6; i++) {
+      const s = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: glowTex, color: PAL.cloud, transparent: true, opacity: 0.8,
+        depthWrite: false, blending: THREE.AdditiveBlending,
+      }));
+      s.position.set(pos[0] - dx * i * 0.5, (pos[1] || 0) + 0.9, pos[2] - dz * i * 0.5);
+      addMesh(s, 0.35 + i * 0.03, (e, k) => {
+        e.mesh.scale.setScalar(1.8 * (1 - k * 0.6));
+        e.mesh.material.opacity = 0.6 * (1 - k);
+      });
+    }
+  }
+
   return {
     state,
+    dash,
     pulse(pos) {
       ring(pos, pulseR, 0.75);
-      ring(pos, pulseR * 0.7, 0.55, 0xfff0c0);
+      ring(pos, pulseR * 0.7, 0.55, PAL.lampCore);
       dome(pos, pulseR, 0.7);
-      glowPop(pos, 7, 0.5, 0xfff0c0, 1.2);
+      glowPop(pos, 7, 0.5, PAL.lampCore, 1.2);
       state.flash = 1;
     },
     pickup(pos) {
       sparks(pos, 6);
-      glowPop(pos, 2.6, 0.35, 0xffe9a0, 1.2);
+      glowPop(pos, 2.6, 0.35, PAL.moteCore, 1.2);
     },
     deposit(lanternPos) {
-      sparks(lanternPos, 8, 0xffb454);
-      glowPop(lanternPos, 4, 0.5, 0xffa040, 3.7);
+      sparks(lanternPos, 8, PAL.lampOn);
+      glowPop(lanternPos, 4, 0.5, PAL.lampOn, 3.7);
     },
     lanternLit(lanternPos, safeRadius) {
-      ring(lanternPos, safeRadius, 1.2, 0xffa23c);
-      ring(lanternPos, safeRadius * 0.55, 0.9, 0xffe0a0);
-      glowPop(lanternPos, 14, 1.0, 0xffa23c, 3.7);
-      sparks(lanternPos, 22, 0xffc060);
+      ring(lanternPos, safeRadius, 1.2, PAL.lampOn);
+      ring(lanternPos, safeRadius * 0.55, 0.9, PAL.lampCore);
+      glowPop(lanternPos, 14, 1.0, PAL.lampOn, 3.7);
+      sparks(lanternPos, 22, PAL.moteHalo);
       state.flash = Math.max(state.flash, 0.5);
     },
     update(dt) {
@@ -113,6 +131,49 @@ export function createEffects(root, tuning, glowTex) {
           list.splice(i, 1);
         }
       }
+    },
+  };
+}
+
+// Lá bay khi gió (Đêm 3). intensity 0..1: 0.35 khi báo trước, 1 khi gió thổi.
+export function createWindLeaves(root) {
+  const N = 110;
+  const mesh = new THREE.InstancedMesh(
+    new THREE.PlaneGeometry(0.3, 0.18),
+    new THREE.MeshBasicMaterial({ side: THREE.DoubleSide, transparent: true, opacity: 0.9, fog: true }),
+    N,
+  );
+  mesh.frustumCulled = false;
+  const base = [];
+  const col = new THREE.Color();
+  for (let i = 0; i < N; i++) {
+    base.push({ x: Math.random() * 60, y: Math.random() * 7 + 0.4, z: Math.random() * 60, ph: Math.random() * 6.28, sp: 0.6 + Math.random() });
+    col.setHex(i % 3 === 0 ? PAL.gold : i % 3 === 1 ? 0x9ccf7a : PAL.sand);
+    mesh.setColorAt(i, col);
+  }
+  mesh.visible = false;
+  root.add(mesh);
+  const d = new THREE.Object3D();
+  let travel = 0;
+  return {
+    update(dt, t, playerPos, intensity, dirDeg) {
+      mesh.visible = intensity > 0.01;
+      if (!mesh.visible) return;
+      mesh.count = Math.max(1, Math.round(N * Math.min(1, intensity)));
+      const a = ((dirDeg ?? 40) * Math.PI) / 180;
+      const speed = 5 + 13 * intensity;
+      travel += dt * speed;
+      const vx = Math.cos(a); const vz = Math.sin(a);
+      for (let i = 0; i < mesh.count; i++) {
+        const b = base[i];
+        const wx = (((b.x + vx * travel * b.sp) % 60) + 60) % 60 - 30;
+        const wz = (((b.z + vz * travel * b.sp) % 60) + 60) % 60 - 30;
+        d.position.set(playerPos[0] + wx, playerPos[1] + b.y + Math.sin(t * 2 + b.ph) * 0.5, playerPos[2] + wz);
+        d.rotation.set(t * 3 * b.sp + b.ph, t * 2 + b.ph, Math.atan2(vz, vx));
+        d.updateMatrix();
+        mesh.setMatrixAt(i, d.matrix);
+      }
+      mesh.instanceMatrix.needsUpdate = true;
     },
   };
 }
