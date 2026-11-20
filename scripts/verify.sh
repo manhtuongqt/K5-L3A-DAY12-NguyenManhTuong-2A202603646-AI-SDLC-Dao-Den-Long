@@ -7,7 +7,7 @@ OUT="${1:-}"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 fail=0
-log() { echo "$*"; [ -n "$OUT" ] && echo "$*" >> "$OUT/verify.txt"; }
+log() { echo "$*"; if [ -n "$OUT" ]; then echo "$*" >> "$OUT/verify.txt"; fi; }
 
 [ -n "$OUT" ] && { mkdir -p "$OUT"; : > "$OUT/verify.txt"; }
 log "# verify $(date -u +%FT%TZ) | node $(node -v) | $(uname -sm) | commit $(git rev-parse --short HEAD 2>/dev/null)"
@@ -30,5 +30,5 @@ for n in 1 2 3; do
   log "night $n: 21600 ticks in ${t}s (limit 30s) | determinism $det | sha256 $(sha256sum "$TMP/n${n}a.jsonl" | cut -c1-16) | $(tail -1 "$TMP/n${n}a.jsonl")"
 done
 
-[ $fail -eq 0 ] && log "RESULT: PASS" || log "RESULT: FAIL"
+if [ $fail -eq 0 ]; then log "RESULT: PASS"; else log "RESULT: FAIL"; fi
 exit $fail

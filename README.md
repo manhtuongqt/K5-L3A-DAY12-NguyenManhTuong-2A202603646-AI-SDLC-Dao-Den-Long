@@ -1,6 +1,8 @@
 # Đảo Đèn Lồng
 
-**Video demo:** _(link Release v1.0.0, cập nhật khi quay xong)_ · **Bản phát hành:** [v1.0.0](../../releases/tag/v1.0.0)
+**Video demo (4 phút 55 giây):** [demo.mp4 trên Release v1.0.0](https://github.com/manhtuongqt/K5-L3A-DAY12-NguyenManhTuong-2A202603646-AI-SDLC-Dao-Den-Long/releases/download/v1.0.0/demo.mp4) · [bản trong repo](docs/demo/demo.mp4) · **Bản phát hành:** [v1.0.0](https://github.com/manhtuongqt/K5-L3A-DAY12-NguyenManhTuong-2A202603646-AI-SDLC-Dao-Den-Long/releases/tag/v1.0.0)
+
+> Video gồm: 3 phút 18 giây chơi Đêm 1 (quay vùng cửa sổ game), 1 phút chơi Đêm 3 toàn màn hình, 36 giây terminal. Phần terminal được dựng thành trang từ output thật của `npm test`, `scripts/verify.sh`, `soak.json`, `bench.json` và lệnh headless chạy lúc 20:24 ngày 2026-11-20 (không quay màn hình được phần này).
 
 Game 3D góc nhìn thứ ba: Mây, người giữ đèn nhỏ tuổi, gom đom đóm để thắp và giữ sáng các Đèn Lồng Lớn tới bình minh, né Bóng Mực trong sương đen, qua 3 Đêm trên 3 hòn đảo.
 
