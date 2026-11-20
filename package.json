@@ -1,0 +1,24 @@
+{
+  "name": "dao-den-long",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Dao Den Long - 3D third-person game with a headless test mode (Day 12 AI SDLC lab)",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "headless": "node src/headless.js",
+    "test": "node --test tests/"
+  },
+  "dependencies": {
+    "three": "^0.170.0"
+  },
+  "devDependencies": {
+    "vite": "^6.0.7"
+  }
+}
