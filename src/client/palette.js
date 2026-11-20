@@ -15,6 +15,8 @@ export const PAL = {
   shadeRim: 0x7a3cff, // Bóng Mực viền
   shadeStun: 0x3a3450, // Bóng Mực bị choáng
   cloud: 0xe8e2d0,    // áo Mây
+  mayHair: 0xe4eff4,  // tóc bạch kim ánh xanh bạc
+  maySkin: 0xffe5d6,  // da sáng
   scarf: 0xc8102e,    // khăn Mây và Bùa Gió
   gold: 0xf2c14e,     // viền vàng, điểm số
   drifter: 0x8fa3b8,  // Gió Lạc

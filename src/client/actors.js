@@ -23,49 +23,112 @@ export function createPlayerView(root, glowTex) {
   const shadowHolder = new THREE.Group();
   shadowHolder.add(shadow);
 
-  const cloudMat = new THREE.MeshStandardMaterial({
+  // Chibi nguyên gốc: áo dài xòe hai tà, đầu lớn và tay/chân nhỏ.
+  // Tất cả chi tiết đều là hình học; không dùng texture cho mặt/tóc/quần áo.
+  const clothMat = new THREE.MeshStandardMaterial({
     color: PAL.cloud, emissive: PAL.cloud, emissiveIntensity: 0.16, roughness: 1,
   });
-  const puff = (r, x, y, z, sy = 1) => {
-    const m = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 12), cloudMat);
-    m.position.set(x, y, z);
-    m.scale.y = sy;
-    inner.add(m);
-    return m;
+  const skinMat = new THREE.MeshStandardMaterial({
+    color: PAL.maySkin, emissive: PAL.maySkin, emissiveIntensity: 0.12, roughness: 0.9,
+  });
+  const hairMat = new THREE.MeshStandardMaterial({
+    color: PAL.mayHair, emissive: PAL.mayHair, emissiveIntensity: 0.22, roughness: 0.65,
+  });
+  const sphereGeo = new THREE.SphereGeometry(1, 16, 12);
+  const ellipsoid = (parent, mat, pos, scale) => {
+    const mesh = new THREE.Mesh(sphereGeo, mat);
+    mesh.position.set(...pos);
+    mesh.scale.set(...scale);
+    parent.add(mesh);
+    return mesh;
   };
-  puff(0.58, 0, 0.62, 0, 0.9);
-  puff(0.4, 0.5, 0.5, 0.05);
-  puff(0.4, -0.5, 0.5, 0.05);
-  puff(0.34, 0.25, 0.33, -0.3);
-  puff(0.34, -0.25, 0.33, 0.32);
-  const head = puff(0.44, 0, 1.3, 0.05);
+  ellipsoid(inner, clothMat, [0, 0.82, 0], [0.29, 0.37, 0.23]);
+  const tunic = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.4, 0.62, 20), clothMat);
+  tunic.position.y = 0.59;
+  inner.add(tunic);
+  // Hai tà cong, chừa khe bên hông; ống quần và hài lộ dưới vạt áo.
+  for (const side of [-1, 1]) {
+    const panel = ellipsoid(inner, clothMat, [0, 0.34, side * 0.17], [0.37, 0.3, 0.1]);
+    panel.rotation.x = side * -0.08;
+    ellipsoid(inner, clothMat, [side * 0.16, 0.16, 0], [0.105, 0.18, 0.12]);
+    ellipsoid(inner, hairMat, [side * 0.16, 0.035, 0.07], [0.12, 0.075, 0.18]);
+    const sleeve = ellipsoid(inner, clothMat, [side * 0.34, 0.8, 0], [0.16, 0.29, 0.16]);
+    sleeve.rotation.z = side * 0.3;
+    ellipsoid(inner, skinMat, [side * 0.42, 0.58, 0.04], [0.1, 0.115, 0.1]);
+  }
+  ellipsoid(inner, skinMat, [0, 1.08, 0.02], [0.14, 0.17, 0.13]);
+  // Cả mặt và tóc cùng nghiêng theo đầu, giữ mắt/vạch má bám trên mặt.
+  const head = new THREE.Group();
+  head.position.set(0, 1.42, 0.05);
+  inner.add(head);
+  ellipsoid(head, skinMat, [0, 0, 0], [0.45, 0.43, 0.42]);
+  ellipsoid(head, hairMat, [0, 0.015, -0.23], [0.46, 0.43, 0.25]);
+  const hairCap = new THREE.Mesh(new THREE.SphereGeometry(0.465, 20, 12, 0, Math.PI * 2, 0, 1.15), hairMat);
+  hairCap.scale.set(1, 0.95, 0.94);
+  head.add(hairCap);
+  for (let i = -2; i <= 2; i++) {
+    const bang = ellipsoid(head, hairMat,
+      [i * 0.135, 0.22 + Math.abs(i) * 0.025, 0.33 - Math.abs(i) * 0.035],
+      [0.095, i === 0 ? 0.16 : 0.18, 0.105]);
+    bang.rotation.z = i * -0.18;
+  }
 
-  const eyeMat = new THREE.MeshBasicMaterial({ color: 0x1b1030 });
-  const eyeGeo = new THREE.SphereGeometry(0.06, 8, 6);
-  const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
-  const eyeR = new THREE.Mesh(eyeGeo, eyeMat);
-  eyeL.position.set(-0.16, 1.33, 0.4);
-  eyeR.position.set(0.16, 1.33, 0.4);
-  eyeL.scale.set(1, 1.3, 0.6);
-  eyeR.scale.set(1, 1.3, 0.6);
-  const cheekMat = new THREE.MeshBasicMaterial({ color: 0xffa6a0, transparent: true, opacity: 0.7 });
-  const cheekGeo = new THREE.SphereGeometry(0.07, 8, 6);
-  const cheekL = new THREE.Mesh(cheekGeo, cheekMat);
-  const cheekR = new THREE.Mesh(cheekGeo, cheekMat);
-  cheekL.position.set(-0.27, 1.22, 0.33);
-  cheekR.position.set(0.27, 1.22, 0.33);
-  cheekL.scale.set(1.3, 0.8, 0.5);
-  cheekR.scale.set(1.3, 0.8, 0.5);
-  const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.012, 6, 12, Math.PI), eyeMat);
-  mouth.position.set(0, 1.2, 0.43);
+  const eyeMat = new THREE.MeshBasicMaterial({ color: 0x241f35 });
+  const whiteMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  for (const side of [-1, 1]) {
+    ellipsoid(head, eyeMat, [side * 0.155, 0.005, 0.393], [0.045, 0.065, 0.025]);
+    ellipsoid(head, whiteMat, [side * 0.155 - 0.012, 0.024, 0.416], [0.012, 0.017, 0.008]);
+    // Ba vạch sơn trắng nằm ngang trên mỗi má, nổi sát mặt cong.
+    for (let j = 0; j < 3; j++) {
+      const y = -0.075 - j * 0.047;
+      const z = 0.42 * Math.sqrt(1 - (0.28 / 0.45) ** 2 - (y / 0.43) ** 2);
+      const stripe = ellipsoid(head, whiteMat, [side * 0.28, y, z + 0.012], [0.065, 0.012, 0.013]);
+      stripe.rotation.y = side * 0.65;
+    }
+  }
+  const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.045, 0.009, 6, 12, Math.PI), eyeMat);
+  mouth.position.set(0, -0.12, 0.405);
   mouth.rotation.z = Math.PI;
-  inner.add(eyeL, eyeR, cheekL, cheekR, mouth);
+  head.add(mouth);
+
+  const scarfMat = new THREE.MeshStandardMaterial({ color: PAL.scarf, roughness: 0.8, emissive: PAL.scarf, emissiveIntensity: 0.12 });
+  const braids = [];
+  const braidPart = new THREE.Object3D();
+  for (const side of [-1, 1]) {
+    const pivot = new THREE.Group();
+    pivot.position.set(side * 0.4, 1.46, -0.015);
+    inner.add(pivot);
+    // Hai chuỗi ellipsoid đan chéo; 18 mắt tết + 3 múi túm tóc, 1 draw call/bím.
+    const plait = new THREE.InstancedMesh(sphereGeo, hairMat, 21);
+    for (let j = 0; j < 9; j++) {
+      for (let strand = 0; strand < 2; strand++) {
+        const weave = (j % 2 === 0 ? 1 : -1) * (strand === 0 ? 1 : -1);
+        braidPart.position.set(side * (0.035 + j * 0.011) + weave * 0.04, -j * 0.092, 0.09 + strand * 0.025);
+        braidPart.scale.set(0.073 - j * 0.002, 0.08, 0.068 - j * 0.002);
+        braidPart.rotation.z = weave * 0.55;
+        braidPart.updateMatrix();
+        plait.setMatrixAt(j * 2 + strand, braidPart.matrix);
+      }
+    }
+    for (let j = 0; j < 3; j++) {
+      braidPart.position.set(side * 0.13 + (j - 1) * 0.035, -0.9, 0.11);
+      braidPart.scale.set(0.035, 0.115 - Math.abs(j - 1) * 0.02, 0.04);
+      braidPart.rotation.z = (j - 1) * 0.28;
+      braidPart.updateMatrix();
+      plait.setMatrixAt(18 + j, braidPart.matrix);
+    }
+    pivot.add(plait);
+    const tie = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.018, 6, 12), scarfMat);
+    tie.rotation.x = Math.PI / 2;
+    tie.position.set(side * 0.13, -0.79, 0.11);
+    pivot.add(tie);
+    braids.push(pivot);
+  }
 
   // khăn đỏ #C8102E quanh cổ, hai đuôi khăn bay phía sau
-  const scarfMat = new THREE.MeshStandardMaterial({ color: PAL.scarf, roughness: 0.8, emissive: PAL.scarf, emissiveIntensity: 0.12 });
-  const scarf = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.09, 8, 20), scarfMat);
+  const scarf = new THREE.Mesh(new THREE.TorusGeometry(0.26, 0.08, 8, 20), scarfMat);
   scarf.rotation.x = Math.PI / 2;
-  scarf.position.set(0, 0.98, 0.02);
+  scarf.position.set(0, 1.04, 0.02);
   inner.add(scarf);
   const tails = [];
   for (let i = 0; i < 2; i++) {
@@ -80,15 +143,15 @@ export function createPlayerView(root, glowTex) {
     color: 0xe0bd72, emissive: 0x5a3d12, emissiveIntensity: 0.4, roughness: 0.85,
   });
   const hat = new THREE.Mesh(new THREE.ConeGeometry(0.82, 0.5, 28), strawMat);
-  hat.position.set(0, 1.84, 0.02);
+  hat.position.set(0, 2.02, 0.02);
   const hatRim = new THREE.Mesh(
     new THREE.TorusGeometry(0.8, 0.03, 6, 36),
     new THREE.MeshStandardMaterial({ color: 0xb98e48, roughness: 0.9 }),
   );
   hatRim.rotation.x = Math.PI / 2;
-  hatRim.position.set(0, 1.6, 0.02);
+  hatRim.position.set(0, 1.78, 0.02);
   const hatTip = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), strawMat);
-  hatTip.position.set(0, 2.1, 0.02);
+  hatTip.position.set(0, 2.28, 0.02);
   inner.add(hat, hatRim, hatTip);
 
   const stick = new THREE.Mesh(
@@ -159,6 +222,11 @@ export function createPlayerView(root, glowTex) {
       light.intensity = 30 + 40 * flash + 3 * Math.sin(t * 8);
       lanternGlow.material.opacity = 0.7 + 0.15 * Math.sin(t * 8) + 0.3 * flash;
       head.rotation.z = Math.sin(t * 1.7) * 0.04;
+      for (let i = 0; i < braids.length; i++) {
+        const side = i === 0 ? -1 : 1;
+        braids[i].rotation.x = -0.08 - 0.28 * speed01 + Math.sin(st.bob + i * 1.6) * (0.025 + 0.12 * speed01) - 0.3 * st.stretch;
+        braids[i].rotation.z = side * (0.04 + Math.sin(st.bob * 0.8 + i) * (0.025 + 0.1 * speed01));
+      }
       const flutter = 0.25 + 0.6 * speed01 + (extra.charm ? 0.4 : 0);
       tails[0].rotation.y = Math.sin(t * 9) * 0.35 * flutter;
       tails[1].rotation.y = Math.sin(t * 9 + 1.7) * 0.35 * flutter;
@@ -280,26 +348,176 @@ export function createShadeView(root, glowTex, id, initialState) {
 }
 
 // ---------------------------------------------------------------- Đom đóm
+// Giữ API từng view cho main.js, nhưng vẽ cả đàn bằng 4 InstancedMesh/root:
+// thân + đầu + râu, hai cánh, bụng sáng, quầng. Không thêm PointLight/texture.
+// Pool lớn dần nếu scenario có thêm đom đóm rơi; không cắt bớt thực thể của sim.
+const motePools = new WeakMap();
+
+function createMotePool(root) {
+  const sphere = new THREE.SphereGeometry(1, 10, 8);
+  const haloGeo = new THREE.PlaneGeometry(1, 1);
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0x635b52, roughness: 0.9, emissive: 0x635b52, emissiveIntensity: 0.2 });
+  const wingMat = new THREE.MeshBasicMaterial({ color: 0xe2eee8, transparent: true, opacity: 0.32, depthWrite: false });
+  const coreMat = new THREE.MeshBasicMaterial({ color: PAL.moteCore, toneMapped: false });
+  // Quầng tròn mềm tự tính trong shader, luôn hướng camera như sprite cũ.
+  const haloMat = new THREE.ShaderMaterial({
+    uniforms: { haloColor: { value: new THREE.Color(PAL.moteHalo) } },
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    side: THREE.DoubleSide, forceSinglePass: true, toneMapped: false,
+    vertexShader: `
+      varying vec2 haloUv;
+      varying float intensity;
+      void main() {
+        haloUv = uv;
+        intensity = instanceColor.r;
+        vec4 center = modelViewMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+        center.xy += position.xy * length(instanceMatrix[0].xyz);
+        gl_Position = projectionMatrix * center;
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 haloColor;
+      varying vec2 haloUv;
+      varying float intensity;
+      void main() {
+        float r = length(haloUv - 0.5) * 2.0;
+        float alpha = exp(-r * r * 5.5) * (1.0 - smoothstep(0.7, 1.0, r));
+        gl_FragColor = vec4(haloColor, alpha * intensity * 0.65);
+        #include <colorspace_fragment>
+      }
+    `,
+  });
+  const layers = [
+    { geo: sphere, mat: bodyMat, parts: 4 },
+    { geo: sphere, mat: wingMat, parts: 2 },
+    { geo: sphere, mat: coreMat, parts: 1 },
+    { geo: haloGeo, mat: haloMat, parts: 1 },
+  ];
+  const entries = [];
+  const local = new THREE.Object3D();
+  const matrix = new THREE.Matrix4();
+  const color = new THREE.Color();
+  let capacity = 0;
+
+  function resize(n) {
+    for (const layer of layers) {
+      const old = layer.mesh;
+      const mesh = new THREE.InstancedMesh(layer.geo, layer.mat, n * layer.parts);
+      mesh.name = ['mote-body', 'mote-wings', 'mote-core', 'mote-halo'][layers.indexOf(layer)];
+      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      mesh.frustumCulled = false; // cả đàn trải khắp đảo, không dùng bound mặc định ở gốc
+      mesh.count = entries.length * layer.parts;
+      if (layer.mat === haloMat) {
+        // instanceColor mang cường độ riêng; material/geometry vẫn dùng chung.
+        mesh.setColorAt(0, color.setRGB(1, 1, 1));
+        mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
+      }
+      if (old) {
+        for (let i = 0; i < old.count; i++) {
+          old.getMatrixAt(i, matrix);
+          mesh.setMatrixAt(i, matrix);
+          if (old.instanceColor) { old.getColorAt(i, color); mesh.setColorAt(i, color); }
+        }
+        root.remove(old);
+        old.dispose();
+      }
+      layer.mesh = mesh;
+      root.add(mesh);
+    }
+    capacity = n;
+  }
+
+  function put(layerIndex, slot, part, group, x, y, z, sx, sy, sz, rz = 0) {
+    local.position.set(x, y, z);
+    local.scale.set(sx, sy, sz);
+    local.rotation.set(0, 0, rz);
+    local.updateMatrix();
+    matrix.multiplyMatrices(group.matrix, local.matrix);
+    const layer = layers[layerIndex];
+    layer.mesh.setMatrixAt(slot * layer.parts + part, matrix);
+    layer.mesh.instanceMatrix.needsUpdate = true;
+  }
+
+  return {
+    add() {
+      if (entries.length === capacity) resize(Math.max(32, capacity * 2));
+      const entry = { slot: entries.length };
+      entries.push(entry);
+      // Chưa update thì ẩn slot mới, tránh hiện ở gốc đảo trong một frame.
+      matrix.makeScale(0, 0, 0);
+      for (const layer of layers) {
+        layer.mesh.count = entries.length * layer.parts;
+        for (let part = 0; part < layer.parts; part++) layer.mesh.setMatrixAt(entry.slot * layer.parts + part, matrix);
+        layer.mesh.instanceMatrix.needsUpdate = true;
+      }
+      return entry;
+    },
+    remove(entry) {
+      if (entry.slot < 0) return;
+      const slot = entry.slot;
+      const last = entries.pop();
+      if (last !== entry) {
+        entries[slot] = last;
+        for (const layer of layers) {
+          for (let part = 0; part < layer.parts; part++) {
+            const to = slot * layer.parts + part;
+            const from = last.slot * layer.parts + part;
+            layer.mesh.getMatrixAt(from, matrix);
+            layer.mesh.setMatrixAt(to, matrix);
+            if (layer.mesh.instanceColor) {
+              layer.mesh.getColorAt(from, color);
+              layer.mesh.setColorAt(to, color);
+              layer.mesh.instanceColor.needsUpdate = true;
+            }
+          }
+        }
+        last.slot = slot;
+      }
+      entry.slot = -1;
+      for (const layer of layers) {
+        layer.mesh.count = entries.length * layer.parts;
+        layer.mesh.instanceMatrix.needsUpdate = true;
+      }
+      if (!entries.length) {
+        for (const layer of layers) { root.remove(layer.mesh); layer.mesh.dispose(); layer.mat.dispose(); }
+        sphere.dispose(); haloGeo.dispose();
+        motePools.delete(root);
+      }
+    },
+    update(entry, group, t, phase, tw, blink, dropped) {
+      const slot = entry.slot;
+      if (slot < 0) return;
+      group.updateMatrix();
+      put(0, slot, 0, group, 0, 0.025, 0.065, 0.075, 0.085, 0.115);
+      put(0, slot, 1, group, 0, 0.045, 0.185, 0.078, 0.075, 0.075);
+      for (let i = 0; i < 2; i++) {
+        const side = i === 0 ? -1 : 1;
+        put(0, slot, 2 + i, group, side * 0.045, 0.13, 0.22, 0.009, 0.075, 0.009, side * -0.4);
+        const flap = 0.25 + Math.sin(t * 65 + phase) * 0.65;
+        put(1, slot, i, group, side * (0.04 + 0.115 * Math.cos(flap)), 0.06 + 0.115 * Math.sin(flap), 0.015,
+          0.155, 0.013, 0.09, side * flap);
+      }
+      const pulse = (0.92 + 0.12 * tw) * (0.5 + 0.5 * blink);
+      put(2, slot, 0, group, 0, -0.025, -0.105, 0.11 * pulse, 0.115 * pulse, 0.145 * pulse);
+      const glowSize = (dropped ? 1.5 : 1.0) + 0.55 * tw;
+      put(3, slot, 0, group, 0, -0.025, -0.105, glowSize, glowSize, glowSize);
+      layers[3].mesh.setColorAt(slot, color.setRGB((0.55 + 0.45 * tw) * blink, 1, 1));
+      layers[3].mesh.instanceColor.needsUpdate = true;
+    },
+  };
+}
+
 export function createMoteView(root, glowTex, id) {
+  let pool = motePools.get(root);
+  if (!pool) { pool = createMotePool(root); motePools.set(root, pool); }
+  // group chỉ giữ transform của view, mesh thực được gộp vào pool của root.
   const group = new THREE.Group();
-  const core = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 8), new THREE.MeshBasicMaterial({ color: PAL.moteCore }));
-  const glow = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: glowTex, color: PAL.moteHalo, transparent: true, opacity: 0.9,
-    depthWrite: false, blending: THREE.AdditiveBlending,
-  }));
-  glow.scale.set(1.3, 1.3, 1);
-  group.add(core, glow);
-  root.add(group);
+  const entry = pool.add();
   const phase = (parseInt(id.replace(/\D/g, ''), 10) || 1) * 2.399;
   return {
     group,
-    dispose() {
-      root.remove(group);
-      glow.material.dispose();
-      core.geometry.dispose();
-      core.material.dispose();
-    },
-    // kind: 'random' | 'dropped'; ttl: giây còn lại của đom đóm rơi (null nếu không có)
+    dispose() { pool.remove(entry); },
+    // kind: 'random' | 'dropped'; ttl: giây còn lại (null nếu không có)
     update(pos, t, kind, ttl) {
       const dropped = kind === 'dropped';
       let blink = 1;
@@ -310,9 +528,8 @@ export function createMoteView(root, glowTex, id) {
         pos[1] + 0.8 + Math.sin(t * 1.7 + phase) * 0.15,
         pos[2] + Math.cos(t * 0.8 + phase) * 0.12,
       );
-      glow.scale.setScalar((dropped ? 1.5 : 1.0) + 0.55 * tw);
-      glow.material.opacity = (0.55 + 0.45 * tw) * blink;
-      core.scale.setScalar((0.85 + 0.3 * tw) * (0.5 + 0.5 * blink));
+      group.rotation.y = phase + Math.sin(t * 0.65 + phase) * 0.4;
+      pool.update(entry, group, t, phase, tw, blink, dropped);
     },
   };
 }
