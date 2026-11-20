@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Đảo Đèn Lồng</title>
+</head>
+<body>
+  <canvas id="view"></canvas>
+
+  <div id="hud" hidden>
+    <div class="panel tl">
+      <div class="row"><span class="lbl">Lửa</span><span id="flames" class="flames"></span></div>
+      <div class="row"><span class="lbl">Đom đóm</span><span class="mote-ico"></span><b id="carried">0/5</b></div>
+    </div>
+    <div class="panel tc">
+      <div class="lbl small">Đến bình minh</div>
+      <div id="time" class="time">05:00</div>
+    </div>
+    <div class="panel tr">
+      <div class="row"><span class="lbl">Đèn lồng</span><b id="lit">0/5</b></div>
+      <div id="lanternPips" class="pips"></div>
+      <div class="row"><span class="lbl">Điểm</span><b id="score" class="score">0</b></div>
+    </div>
+
+    <div id="toasts"></div>
+    <div id="prompt" class="prompt" hidden></div>
+
+    <div id="pulse" class="pulse">
+      <div class="pulse-ring"><span class="pulse-ico"></span></div>
+      <div class="pulse-txt">
+        <b>Tỏa sáng</b> <kbd>F</kbd> / <kbd>chuột phải</kbd>
+        <div id="pulseState" class="small">Sẵn sàng</div>
+      </div>
+    </div>
+
+    <div class="help panel">
+      <kbd>W A S D</kbd> đi · <kbd>Space</kbd> nhảy · <kbd>E</kbd> nạp đèn · <kbd>F</kbd> tỏa sáng<br />
+      Kéo chuột trái / <kbd>Q</kbd> <kbd>C</kbd> xoay camera · <kbd>R</kbd> chơi lại
+    </div>
+  </div>
+
+  <div id="hit"></div>
+
+  <div id="intro" class="overlay">
+    <div class="card">
+      <h1>Đảo Đèn Lồng</h1>
+      <p class="story">
+        Sương đen đã nuốt hết ánh sáng của đảo. Bạn là <b>Mây</b>, người giữ đèn nhỏ tuổi.
+        Hãy nhặt đom đóm, mang về thắp lại <b>5 Đèn Lồng Lớn</b> trước khi bình minh tới,
+        và tránh những <b class="ink">Bóng Mực</b> đang rình trong sương.
+      </p>
+      <div class="keys">
+        <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> hoặc phím mũi tên <span>di chuyển</span></div>
+        <div><kbd>Space</kbd> <span>nhảy</span></div>
+        <div><kbd>E</kbd> <span>nạp đom đóm vào đèn gần nhất</span></div>
+        <div><kbd>F</kbd> hoặc <kbd>chuột phải</kbd> <span>tỏa sáng, xua Bóng Mực (tốn 1 đom đóm)</span></div>
+        <div>Kéo <kbd>chuột trái</kbd> hoặc <kbd>Q</kbd> <kbd>C</kbd> <span>xoay camera</span></div>
+        <div><kbd>R</kbd> <span>chơi lại</span></div>
+      </div>
+      <button id="startBtn" class="btn">Nhấn Enter hoặc bấm để chơi</button>
+      <div id="glError" class="error" hidden></div>
+    </div>
+  </div>
+
+  <div id="end" class="overlay" hidden>
+    <div class="card">
+      <h2 id="endTitle">Thắng!</h2>
+      <p id="endReason" class="story"></p>
+      <div class="endstats">
+        <div><span class="lbl">Điểm</span><b id="endScore">0</b></div>
+        <div><span class="lbl">Đèn đã thắp</span><b id="endLit">0/5</b></div>
+        <div><span class="lbl">Lửa còn lại</span><b id="endFlames">0</b></div>
+      </div>
+      <button id="restartBtn" class="btn">Nhấn R để chơi lại</button>
+    </div>
+  </div>
+
+  <script type="module" src="/src/client/main.js"></script>
+</body>
+</html>
