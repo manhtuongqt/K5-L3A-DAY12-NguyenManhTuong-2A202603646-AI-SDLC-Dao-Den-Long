@@ -18,7 +18,8 @@ import { createHud } from './hud.js';
 import { createInput } from './input.js';
 import { createScreens, NIGHTS } from './screens.js';
 import { createAudio } from './audio.js';
-import { loadSettings, saveSettings } from './settings.js';
+import { loadSettings, saveSettings, keyLabel } from './settings.js';
+import { loadBoard, submitScore } from './board.js';
 
 const tuning = contract.tuning;
 const STEP = 1 / 60;
@@ -31,7 +32,22 @@ const hud = createHud(tuning);
 const params = new URLSearchParams(window.location.search);
 const settings = loadSettings();
 document.documentElement.dataset.distinguishableColors = String(settings.distinguishableColors);
+document.documentElement.dataset.reduceMotion = String(settings.reduceMotion);
+document.documentElement.dataset.largeText = String(settings.largeText);
 const getSettings = () => settings;
+function applyKeyLabels() {
+  const k = settings.keys;
+  const set = (id, t) => { const n = document.getElementById(id); if (n) n.textContent = t; };
+  set('kbdDash', keyLabel(k.dash)); set('kbdPulse', keyLabel(k.pulse));
+  const hb = document.getElementById('helpBox');
+  if (hb) {
+    const kd = (a) => `<kbd>${keyLabel(k[a])}</kbd>`;
+    hb.innerHTML = `${kd('up')}${kd('left')}${kd('down')}${kd('right')} đi · ${kd('jump')} nhảy · ${kd('dash')} lướt · ` +
+      `${kd('interact')} thắp / châm dầu · ${kd('pulse')} tỏa sáng<br />Kéo chuột / ${kd('camL')} ${kd('camR')} xoay camera · ` +
+      `${kd('pause')} tạm dừng · <kbd>R</kbd> chơi lại Đêm`;
+  }
+}
+applyKeyLabels();
 const audio = createAudio(getSettings);
 
 function randomSeed() {
@@ -91,6 +107,8 @@ let lastCountdown = null;
 let windWarned = false;
 let windWasActive = false;
 let leafDir = 40;
+let shadeAlert = null;
+const lowFuel = new Set();
 const run = { scores: [null, null, null] };
 const runTotal = () => run.scores.reduce((s, v) => s + (v || 0), 0);
 
@@ -106,6 +124,9 @@ const screens = createScreens(document.getElementById('screen'), (a) => onAction
   saveSettings(settings);
   if (k === 'volume') audio.applyVolume();
   if (k === 'distinguishableColors') document.documentElement.dataset.distinguishableColors = String(v);
+  if (k === 'reduceMotion') document.documentElement.dataset.reduceMotion = String(v);
+  if (k === 'largeText') document.documentElement.dataset.largeText = String(v);
+  if (k === 'keys') { applyKeyLabels(); input.releaseAll(); }
 }, tuning);
 
 function unlockAudio() {
@@ -168,7 +189,7 @@ function newGame(n, scenario) {
   prev = cur = copySnap(g.snapshot());
   acc = 0; ticks = 0; shake = 0; dashT = 0; faceAngle = 0;
   endInfo = null; endTimer = 0; softPaused = false;
-  lastCountdown = null; windWarned = false; windWasActive = false;
+  lastCountdown = null; windWarned = false; windWasActive = false; shadeAlert = null; lowFuel.clear();
   clearViews();
   stage.loadMap(map);
   stage.updateAmbience(0, 0, 0, 0, true);
@@ -183,6 +204,7 @@ function newGame(n, scenario) {
 function updateDuck() { audio.duck(!!screens.current); }
 
 function showMenu() {
+  returnStack.length = 0;
   mode = 'menu';
   hud.showHud(false);
   newGame(1);
@@ -236,10 +258,10 @@ function closePause() {
   updateDuck();
 }
 
-let settingsReturn = null;
+const returnStack = [];
 function onEsc() {
   const c = screens.current;
-  if (c && c.name === 'settings') { onAction('back'); return; }
+  if (c && ['settings', 'board', 'keys'].includes(c.name)) { onAction('back'); return; }
   if (mode === 'paused') closePause();
   else if (mode === 'playing') openPause();
 }
@@ -253,10 +275,22 @@ function onAction(a) {
   else if (a === 'restart') { restartNight(); }
   else if (a === 'again') restartNight();
   else if (a === 'menu') showMenu();
-  else if (a === 'settings') { settingsReturn = screens.current; screens.show('settings'); }
-  else if (a === 'back') {
-    const r = settingsReturn || { name: 'menu', data: {} };
+  else if (a === 'settings' || a === 'keys') { returnStack.push(screens.current); screens.show(a); }
+  else if (a === 'board') {
+    returnStack.push(screens.current);
+    screens.show('board', { loading: true });
+    loadBoard().then((b) => { if (screens.current && screens.current.name === 'board') screens.show('board', b); });
+  } else if (a === 'back') {
+    const r = returnStack.pop() || { name: 'menu', data: {} };
     screens.show(r.name, r.data);
+  } else if (a.startsWith('save:')) {
+    const c = screens.current;
+    if (c && c.data.entry && !c.data.saved) {
+      submitScore({ name: a.slice(5), ...c.data.entry }).then((r) => {
+        const cc = screens.current;
+        if (cc && cc.name === c.name) screens.show(cc.name, { ...cc.data, saved: r.source });
+      });
+    }
   } else if (a === 'next') showIntro(Math.min(3, night + 1));
   else if (a === 'new') startRun(1);
 }
@@ -264,6 +298,7 @@ function onAction(a) {
 // tự tạm dừng khi rời tab
 document.addEventListener('visibilitychange', () => { if (document.hidden && mode === 'playing') openPause(); });
 
+const runEntry = () => ({ score: runTotal(), nights_won: run.scores.filter((v) => v != null).length, seed });
 function finishEnd() {
   const win = endInfo.result === 'won';
   const flames = cur.player.flames;
@@ -271,11 +306,12 @@ function finishEnd() {
   mode = 'result';
   hud.showHud(true);
   if (win && night >= 3) {
-    screens.show('dawn', { total: runTotal(), scores: run.scores });
+    screens.show('dawn', { total: runTotal(), scores: run.scores, entry: runEntry() });
   } else {
     screens.show('result', {
       night, win, reason: endInfo.reason, score: cur.score, total: runTotal(), flames,
       lit: cur.lanterns.filter((l) => l.lit).length, nLan: cur.lanterns.length,
+      entry: win ? null : runEntry(),
     });
   }
   updateDuck();
@@ -325,12 +361,15 @@ function handleEvents(events) {
         if (d.stunned_ids && d.stunned_ids.length) hud.toast(`Bóng Mực choáng váng x${d.stunned_ids.length}!`);
         break;
       case 'player_hit':
-        shake = 1; hud.hitFlash(); audio.sfx('hit');
+        if (!settings.reduceMotion) { shake = 1; hud.hitFlash(); }
+        audio.sfx('hit');
         if (d.by === 'fall') hud.toast('Mây rơi khỏi đảo! Mất hết đom đóm', 'bad');
         else hud.toast(d.dropped > 0 ? `Bóng Mực chạm bạn! Rơi ${d.dropped} đom đóm` : 'Bóng Mực chạm bạn!', 'bad');
         break;
       case 'shade_spawned':
         audio.sfx('shade'); hud.toast('Một Bóng Mực mới trồi lên từ sương...', 'bad');
+        hud.caption('Bóng Mực xuất hiện! Mũi tên đỏ chỉ hướng của nó', 'bad', 4000);
+        shadeAlert = { id: d.id, until: clockT + 5 };
         break;
       case 'dash':
         dashT = 0.25; fx.dash(cur.player.pos, faceAngle); audio.sfx('dash');
@@ -368,10 +407,16 @@ function derivedAudio() {
   if (secs <= 10 && secs > 0 && secs !== lastCountdown && cur.state !== 'paused') {
     audio.sfx(secs === 1 ? 'tickFinal' : 'tick');
   }
+  if (secs <= 10 && secs > 0 && secs !== lastCountdown && cur.state !== 'paused') hud.caption(`Còn ${secs} giây!`, 'bad', 1300);
+  for (const l of cur.lanterns) {
+    if (l.lit && l.fuel < 30) {
+      if (!lowFuel.has(l.id)) { lowFuel.add(l.id); hud.caption(`Đèn ${l.id} sắp cạn dầu (${Math.round(l.fuel)})! Châm thêm đom đóm`, 'bad', 3000); }
+    } else lowFuel.delete(l.id);
+  }
   lastCountdown = secs;
   const st = cur.sim_tick;
   const inWarn = !!map.wind && st > 0 && !cur.wind.active && (st % WIND_PERIOD) >= WIND_PERIOD - WIND_WARN_TICKS;
-  if (inWarn && !windWarned) { audio.sfx('windWarn'); hud.toast('Gió sắp nổi!', 'bad'); leafDir = Math.random() * 360; }
+  if (inWarn && !windWarned) { audio.sfx('windWarn'); hud.toast('Gió sắp nổi!', 'bad'); hud.caption('Gió sắp thổi! Bám chắc nhé', 'bad', 3000); leafDir = Math.random() * 360; }
   windWarned = inWarn;
   if (cur.wind.active !== windWasActive) { windWasActive = cur.wind.active; audio.wind(windWasActive); }
 }
@@ -433,6 +478,7 @@ const camLook = new THREE.Vector3();
 const tmpV = new THREE.Vector3();
 
 function render(alpha, dt, t) {
+  const flashV = settings.reduceMotion ? 0 : fx.state.flash;
   const pPrev = prev.player.pos;
   const pCur = cur.player.pos;
   const pPos = lerpPos(pPrev, pCur, alpha);
@@ -448,10 +494,10 @@ function render(alpha, dt, t) {
   const nLan = Math.max(1, cur.lanterns.length);
   const litCount = stage.updateLanterns(cur.lanterns, dt, t, pPos);
   fx.update(dt);
-  stage.updateAmbience(litCount / nLan, dt, t, fx.state.flash, false);
+  stage.updateAmbience(litCount / nLan, dt, t, flashV, false);
   stage.skyGroup.position.set(pPos[0], 0, pPos[2]);
 
-  playerView.update(pPos, faceAngle, speed01, t, dt, blink, fx.state.flash, {
+  playerView.update(pPos, faceAngle, speed01, t, dt, blink, flashV, {
     groundY: groundOf(pPos[0], pPos[1], pPos[2]), charm: cur.player.charm_s > 0, dashing: dashT > 0,
   });
 
@@ -529,7 +575,7 @@ function render(alpha, dt, t) {
     const H = 7.2 + pPos[1] * 0.4;
     const cx = pPos[0] - Math.sin(th) * D;
     const cz = pPos[2] - Math.cos(th) * D;
-    shake = Math.max(0, shake - dt * 2.2);
+    shake = settings.reduceMotion ? 0 : Math.max(0, shake - dt * 2.2);
     const sh = shake * shake * 0.35;
     camera.position.set(-cx + (Math.random() - 0.5) * sh, H + (Math.random() - 0.5) * sh, cz);
     camLook.set(-pPos[0], 0.9 + pPos[1] * 0.5, pPos[2]);
@@ -540,6 +586,30 @@ function render(alpha, dt, t) {
   camera.updateProjectionMatrix();
   camera.lookAt(camLook);
   stage.renderer.render(stage.scene, camera);
+}
+
+function updateShadeArrow() {
+  const el = hud.el.shadeArrow;
+  const sh = shadeAlert && clockT < shadeAlert.until && mode === 'playing' ? cur.shades.find((x) => x.id === shadeAlert.id) : null;
+  if (!sh) { el.hidden = true; return; }
+  tmpV.set(sh.pos[0], sh.pos[1] + 1, sh.pos[2]);
+  root.localToWorld(tmpV);
+  tmpV.applyMatrix4(camera.matrixWorldInverse);
+  const behind = tmpV.z > 0;
+  tmpV.applyMatrix4(camera.projectionMatrix);
+  let nx = tmpV.x; let ny = tmpV.y;
+  if (behind) { nx = -nx; ny = -ny; }
+  if (Math.abs(nx) < 0.01 && Math.abs(ny) < 0.01) ny = -1;
+  const w = window.innerWidth; const h = window.innerHeight;
+  const len = Math.hypot(nx, ny) || 1;
+  const ux = nx / len; const uy = ny / len;
+  const sx = ux === 0 ? Infinity : (w / 2 - 70) / Math.abs(ux);
+  const sy = uy === 0 ? Infinity : (h / 2 - (uy > 0 ? 130 : 140)) / Math.abs(uy);
+  const sc = Math.min(sx, sy);
+  el.hidden = false;
+  el.style.left = `${w / 2 + ux * sc}px`;
+  el.style.top = `${h / 2 - uy * sc}px`;
+  el.style.setProperty('--rot', `${Math.atan2(ux, uy)}rad`);
 }
 
 function attract() { return mode === 'menu' || mode === 'intro'; }
@@ -633,7 +703,7 @@ function frame(now) {
 
   const alpha = mode === 'playing' ? Math.min(1, acc / STEP) : 1;
   render(alpha, dt, clockT);
-  if (mode !== 'menu' && mode !== 'intro') hud.update(hudValues());
+  if (mode !== 'menu' && mode !== 'intro') { hud.update(hudValues()); updateShadeArrow(); } else hud.el.shadeArrow.hidden = true;
 }
 
 // ---------------------------------------------------------------- Khởi động

@@ -1,3 +1,6 @@
+import { validateName } from '../leaderboard.js';
+import { KEY_ACTIONS, DEFAULT_KEYS, RESERVED_KEYS, keyLabel } from './settings.js';
+
 // Các màn hình: menu chính, giới thiệu Đêm, tạm dừng, cài đặt, kết quả, Bình Minh.
 export const NIGHTS = {
   1: {
@@ -23,18 +26,33 @@ const REASONS = {
 const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
 const btn = (action, label, cls = '') => `<button class="btn ${cls}" data-action="${action}">${label}</button>`;
 
-const KEYS_HTML = `
-  <div class="keys">
-    <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> hoặc mũi tên <span>di chuyển</span></div>
-    <div><kbd>Space</kbd> <span>nhảy</span> · <kbd>Shift</kbd> <span>lướt</span></div>
-    <div><kbd>E</kbd> <span>thắp đèn hoặc châm dầu cho đèn gần nhất</span></div>
-    <div><kbd>F</kbd> hoặc <kbd>chuột phải</kbd> <span>tỏa sáng (tốn 3 đom đóm)</span></div>
-    <div>Kéo <kbd>chuột trái</kbd> hoặc <kbd>Q</kbd> <kbd>C</kbd> <span>xoay camera</span></div>
-    <div><kbd>Esc</kbd> hoặc <kbd>P</kbd> <span>tạm dừng</span> · <kbd>R</kbd> <span>chơi lại Đêm</span></div>
-  </div>`;
+const NAME_ERR = 'Tên phải dài 3–12 ký tự: chữ cái (có dấu cũng được), số hoặc dấu gạch dưới.';
 
 export function createScreens(el, onAction, getSettings, onSetting, tuning) {
   let current = null;
+  let capturing = null; // hành động đang chờ gán phím
+  const kb = (a) => `<kbd>${esc(keyLabel(getSettings().keys[a]))}</kbd>`;
+  const keysHtml = () => `
+  <div class="keys">
+    <div>${kb('up')}${kb('left')}${kb('down')}${kb('right')} hoặc mũi tên <span>di chuyển</span></div>
+    <div>${kb('jump')} <span>nhảy</span> · ${kb('dash')} <span>lướt</span></div>
+    <div>${kb('interact')} <span>thắp đèn hoặc châm dầu cho đèn gần nhất</span></div>
+    <div>${kb('pulse')} hoặc <kbd>chuột phải</kbd> <span>tỏa sáng (tốn 3 đom đóm)</span></div>
+    <div>Kéo <kbd>chuột trái</kbd> hoặc ${kb('camL')} ${kb('camR')} <span>xoay camera</span></div>
+    <div>${kb('pause')} <span>tạm dừng</span> · <kbd>R</kbd> <span>chơi lại Đêm</span></div>
+  </div>`;
+  const saveForm = (d) => (d.saved ?
+    `<p class="okmsg">Đã lưu vào bảng xếp hạng${d.saved === 'local' ? ' (trên máy này)' : ''}.</p>` : `
+    <div class="namebox">
+      <label for="nameInput">Tên của bạn (${d.entry.score} điểm, thắng ${d.entry.nights_won}/3 Đêm)</label><br />
+      <input id="nameInput" type="text" maxlength="12" autocomplete="off" spellcheck="false" aria-describedby="nameErr" />
+      ${btn('save', 'Lưu điểm', 'small')}
+      <div id="nameErr" class="err" role="alert"></div>
+    </div>`);
+  const boardRows = (entries) => (entries.length ? entries.slice(0, 10).map((e, i) => `
+      <tr><td>${i + 1}</td><td>${esc(e.name)}</td><td>${e.score}</td><td>${e.nights_won}/3</td></tr>`).join('') :
+    '<tr><td colspan="4">Chưa có điểm nào.</td></tr>');
+
 
   const render = {
     menu: () => `
@@ -47,9 +65,10 @@ export function createScreens(el, onAction, getSettings, onSetting, tuning) {
           <div class="nights">
             ${[1, 2, 3].map((n) => btn(`night:${n}`, `Đêm ${n} · ${NIGHTS[n].name}`, 'small')).join('')}
           </div>
+          ${btn('board', 'Bảng xếp hạng')}
           ${btn('settings', 'Cài đặt')}
         </div>
-        ${KEYS_HTML}
+        ${keysHtml()}
         <div class="hint">Nhấn Enter để chơi</div>
       </div>`,
 
@@ -62,7 +81,7 @@ export function createScreens(el, onAction, getSettings, onSetting, tuning) {
           <div><div class="who">Ông Đăng, người giữ đèn già</div><div class="say">“${esc(NIGHTS[d.night].line)}”</div></div>
         </div>
         <p class="story">Sống tới bình minh với ít nhất ${Math.ceil(tuning.win_ratio * d.nLan)}/${d.nLan} đèn đang sáng. Đèn hao dầu liên tục; dùng đom đóm để châm dầu.</p>
-        ${d.night === 1 ? KEYS_HTML : '<p class="hint">Lướt bằng Shift, tạm dừng bằng Esc.</p>'}
+        ${d.night === 1 ? keysHtml() : '<p class="hint">Lướt bằng Shift, tạm dừng bằng Esc.</p>'}
         ${d.total > 0 ? `<p class="hint">Tổng điểm đã tích lũy: <b style="color:var(--gold)">${d.total}</b></p>` : ''}
         <div class="menu">${btn('begin', 'Bắt đầu Đêm ' + d.night + ' (Enter)', 'primary')}${btn('menu', 'Về menu', 'small')}</div>
       </div>`,
@@ -96,6 +115,14 @@ export function createScreens(el, onAction, getSettings, onSetting, tuning) {
           <label><span>Bảng màu dễ phân biệt</span><input type="checkbox" data-setting="distinguishableColors" ${s.distinguishableColors ? 'checked' : ''} /></label>
           <p class="hint">Viền và mắt Bóng Mực màu xanh lam; cảnh báo trắng kèm ⚠.</p>
         </div>
+        <div class="setting">
+          <label><span>Giảm chuyển động</span><input type="checkbox" data-setting="reduceMotion" ${s.reduceMotion ? 'checked' : ''} /></label>
+          <p class="hint">Tắt rung camera và chớp màn hình.</p>
+        </div>
+        <div class="setting">
+          <label><span>Chữ lớn (×1.25)</span><input type="checkbox" data-setting="largeText" ${s.largeText ? 'checked' : ''} /></label>
+        </div>
+        <div class="menu">${btn('keys', 'Đổi phím')}</div>
         <p class="hint">Cài đặt được lưu cho lần mở game sau.</p>
         <div class="menu">${btn('back', 'Quay lại (Esc)', 'primary')}</div>
       </div>`;
@@ -126,7 +153,30 @@ export function createScreens(el, onAction, getSettings, onSetting, tuning) {
           <div><span class="lbl">Điểm</span><b>${d.score}</b></div>
           <div><span class="lbl">Đèn đang sáng</span><b>${d.lit}/${d.nLan}</b></div>
         </div>
+        ${d.entry ? saveForm(d) : ''}
         <div class="menu">${btn('again', 'Chơi lại Đêm ' + d.night + ' (Enter / R)', 'primary')}${btn('menu', 'Về menu', 'small')}</div>
+      </div>`;
+    },
+
+    board: (d) => `
+      <div class="card">
+        <h2>Bảng xếp hạng</h2>
+        ${d.loading ? '<p class="tagline">Đang tải...</p>' : `<table class="board">
+          <tr><th>#</th><th>Tên</th><th>Điểm</th><th>Đêm thắng</th></tr>${boardRows(d.entries || [])}</table>
+        ${d.source === 'local' ? '<p class="hint">Đang hiện điểm lưu trên máy này.</p>' : ''}`}
+        <div class="menu">${btn('back', 'Quay lại (Esc)', 'primary')}</div>
+      </div>`,
+
+    keys: (d) => {
+      const k = getSettings().keys;
+      return `
+      <div class="card">
+        <h2>Đổi phím</h2>
+        <p class="hint">Bấm một nút bên dưới rồi bấm phím mới. Esc để hủy.</p>
+        ${KEY_ACTIONS.map(([a, label]) => `<div class="bindrow"><span>${label}</span>
+          <button class="btn small${capturing === a ? ' waiting' : ''}" data-bind="${a}">${capturing === a ? 'Bấm phím...' : esc(keyLabel(k[a]))}</button></div>`).join('')}
+        <div id="keyMsg" class="err" role="alert">${esc(d.msg || '')}</div>
+        <div class="menu">${btn('keys-reset', 'Khôi phục mặc định')}${btn('back', 'Quay lại', 'primary')}</div>
       </div>`;
     },
 
@@ -143,16 +193,55 @@ export function createScreens(el, onAction, getSettings, onSetting, tuning) {
           ${d.scores.map((s, i) => `<tr><td>Đêm ${i + 1} · ${esc(NIGHTS[i + 1].name)}</td><td>${s ?? "—"}</td></tr>`).join('')}
         </table>
         <div class="endstats"><div><span class="lbl">Tổng điểm</span><b>${d.total}</b></div></div>
+        ${d.entry ? saveForm(d) : ''}
         <div class="menu">${btn('new', 'Chơi lại từ Đêm 1 (Enter)', 'primary')}${btn('menu', 'Về menu', 'small')}</div>
       </div>`,
   };
 
   el.addEventListener('click', (e) => {
+    const bind = e.target.closest('[data-bind]');
+    if (bind) { capturing = bind.dataset.bind; refreshKeys(''); return; }
     const b = e.target.closest('[data-action]');
     if (!b) return;
     b.blur();
-    onAction(b.dataset.action);
+    const a = b.dataset.action;
+    if (a === 'keys-reset') { capturing = null; onSetting('keys', { ...DEFAULT_KEYS }); refreshKeys('Đã khôi phục phím mặc định.'); return; }
+    if (a === 'save') { trySave(); return; }
+    capturing = null;
+    onAction(a);
   });
+  function refreshKeys(msg) {
+    if (current && current.name === 'keys') { current.data = { msg }; el.innerHTML = render.keys(current.data); }
+  }
+  function trySave() {
+    const inp = el.querySelector('#nameInput');
+    if (!inp) return;
+    const name = inp.value.trim();
+    if (!validateName(name)) {
+      const err = el.querySelector('#nameErr'); if (err) err.textContent = NAME_ERR;
+      inp.setAttribute('aria-invalid', 'true'); inp.focus();
+      return;
+    }
+    onAction('save:' + name);
+  }
+  el.addEventListener('keydown', (e) => {
+    if (e.target && e.target.id === 'nameInput' && (e.key === 'Enter')) { e.preventDefault(); trySave(); }
+  });
+  // đang chờ gán phím: chặn mọi phím khác (pha capture, chạy trước input.js)
+  window.addEventListener('keydown', (e) => {
+    if (!capturing || !current || current.name !== 'keys') return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    if (e.repeat || ['ControlLeft', 'ControlRight', 'AltLeft', 'AltRight', 'MetaLeft', 'MetaRight'].includes(e.code)) return;
+    if (e.code === 'Escape' && getSettings().keys[capturing] !== 'Escape') { capturing = null; refreshKeys(''); return; }
+    const keys = getSettings().keys;
+    if (RESERVED_KEYS[e.code]) { refreshKeys(`Phím ${keyLabel(e.code)} đã dành cho "${RESERVED_KEYS[e.code]}". Bấm phím khác.`); return; }
+    const other = KEY_ACTIONS.find(([a]) => a !== capturing && keys[a] === e.code);
+    if (other) { refreshKeys(`Phím ${keyLabel(e.code)} đã dùng cho "${other[1]}". Bấm phím khác hoặc đổi phím kia trước.`); return; }
+    onSetting('keys', { ...keys, [capturing]: e.code });
+    const label = KEY_ACTIONS.find(([a]) => a === capturing)[1];
+    capturing = null;
+    refreshKeys(`Đã gán ${keyLabel(e.code)} cho "${label}".`);
+  }, true);
   el.addEventListener('input', (e) => {
     const key = e.target.dataset && e.target.dataset.setting;
     if (!key) return;
@@ -163,7 +252,7 @@ export function createScreens(el, onAction, getSettings, onSetting, tuning) {
     } else if (key === 'sensitivity') {
       onSetting('sensitivity', v / 100);
       const n = el.querySelector('#sensVal'); if (n) n.textContent = `${(v / 100).toFixed(1)}×`;
-    } else if (key === 'distinguishableColors') {
+    } else if (key === 'distinguishableColors' || key === 'reduceMotion' || key === 'largeText') {
       onSetting(key, e.target.checked);
     }
   });
@@ -172,6 +261,7 @@ export function createScreens(el, onAction, getSettings, onSetting, tuning) {
     get current() { return current; },
     show(name, data = {}) {
       current = { name, data };
+      capturing = null;
       el.innerHTML = render[name](data);
       el.classList.toggle('solid', name === 'menu' || name === 'dawn' || name === 'intro');
       el.hidden = false;

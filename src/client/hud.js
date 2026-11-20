@@ -11,9 +11,10 @@ export function createHud(tuning) {
     carried: $('carried'), moteBar: $('moteBar'),
     skillDash: $('skillDash'), skillPulse: $('skillPulse'), skillCharm: $('skillCharm'),
     dashState: $('dashState'), pulseState: $('pulseState'), charmState: $('charmState'),
-    arrow: $('arrow'), arrowDist: $('arrowDist'), hit: $('hit'), fps: $('fps'),
+    arrow: $('arrow'), shadeArrow: $('shadeArrow'), caption: $('caption'), arrowDist: $('arrowDist'), hit: $('hit'), fps: $('fps'),
   };
   const cache = {};
+  let capTimer = 0;
   const set = (key, node, text) => {
     if (cache[key] !== text) { cache[key] = text; node.textContent = text; }
   };
@@ -136,7 +137,15 @@ export function createHud(tuning) {
       while (el.toasts.children.length > 4) el.toasts.firstChild.remove();
       setTimeout(() => d.remove(), 2700);
     },
-    clearToasts() { el.toasts.innerHTML = ''; },
+    clearToasts() { el.toasts.innerHTML = ''; el.caption.hidden = true; },
+    // phụ đề ngắn ở màn hình (chỉ báo hình ảnh cho người không nghe được âm thanh)
+    caption(text, kind = 'good', ms = 3000) {
+      el.caption.textContent = text;
+      el.caption.className = `caption ${kind}`;
+      el.caption.hidden = false;
+      clearTimeout(capTimer);
+      capTimer = setTimeout(() => { el.caption.hidden = true; }, ms);
+    },
     hitFlash() {
       el.hit.classList.remove('flash');
       void el.hit.offsetWidth;

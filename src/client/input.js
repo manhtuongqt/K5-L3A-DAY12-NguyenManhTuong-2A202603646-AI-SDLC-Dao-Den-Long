@@ -3,20 +3,22 @@
 // Quy ước (khớp sim): move [x, z], D = +x, W = +z. Với yaw θ, W đi theo (sinθ, cosθ).
 // Camera đặt phía sau nên W luôn đi "ra xa camera". Tăng yaw = camera quay sang phải.
 // E dùng để nạp đèn nên xoay camera bằng Q (trái) và C (phải) hoặc kéo chuột trái.
-// Shift = Lướt, Esc/P = tạm dừng (gửi `pause` cho sim, sim tự dừng logic).
+// Phím gán được trong Cài đặt > Đổi phím. Mặc định Shift = Lướt, Esc/P = tạm dừng (gửi `pause` cho sim, sim tự dừng logic).
 
-const KEY_MAP = {
-  KeyW: 'up', ArrowUp: 'up',
-  KeyS: 'down', ArrowDown: 'down',
-  KeyA: 'left', ArrowLeft: 'left',
-  KeyD: 'right', ArrowRight: 'right',
-  Space: 'jump',
-  KeyE: 'interact',
-  KeyF: 'pulse',
-  ShiftLeft: 'dash', ShiftRight: 'dash',
-  KeyQ: 'camL', KeyZ: 'camL',
-  KeyC: 'camR',
+// Bản đồ phím lấy từ settings.keys; phím phụ (mũi tên, Shift phải, P, Z) chỉ dùng khi chưa bị gán cho hành động khác.
+const ALIASES = {
+  ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
+  ShiftRight: 'dash', KeyP: 'pause', Escape: 'pause', KeyZ: 'camL',
 };
+let mapFor = null; let mapCache = null;
+function keyMap(keys) {
+  if (mapFor === keys && mapCache) return mapCache;
+  const m = {};
+  for (const [a, c] of Object.entries(keys || {})) m[c] = a;
+  for (const [c, a] of Object.entries(ALIASES)) if (!(c in m)) m[c] = a;
+  mapFor = keys; mapCache = m;
+  return m;
+}
 
 export function createInput(canvas, handlers, getSettings) {
   const held = {
@@ -35,29 +37,27 @@ export function createInput(canvas, handlers, getSettings) {
 
   window.addEventListener('keydown', (e) => {
     handlers.onAnyInput?.();
+    const tag = e.target && e.target.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return; // đang gõ tên
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.code === 'Enter' || e.code === 'NumpadEnter') {
       if (handlers.onEnter?.()) e.preventDefault();
-      return;
-    }
-    if (e.code === 'Escape' || e.code === 'KeyP') {
-      if (!e.repeat) handlers.onPause?.();
-      e.preventDefault();
       return;
     }
     if (e.code === 'KeyR') {
       if (!e.repeat) handlers.onRestart?.();
       return;
     }
-    const name = KEY_MAP[e.code];
+    const name = keyMap(getSettings && getSettings().keys)[e.code];
     if (!name) return;
     e.preventDefault();
     if (e.repeat) return;
+    if (name === 'pause') { handlers.onPause?.(); return; }
     setKey(name, true);
   });
   window.addEventListener('keyup', (e) => {
-    const name = KEY_MAP[e.code];
-    if (!name) return;
+    const name = keyMap(getSettings && getSettings().keys)[e.code];
+    if (!name || name === 'pause') return;
     e.preventDefault();
     setKey(name, false);
   });

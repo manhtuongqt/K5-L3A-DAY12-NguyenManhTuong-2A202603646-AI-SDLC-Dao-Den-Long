@@ -32,6 +32,11 @@
       <span id="arrowDist"></span>
     </div>
 
+    <div id="caption" class="caption" role="status" aria-live="polite" hidden></div>
+    <div id="shadeArrow" class="arrow shade" hidden>
+      <svg viewBox="0 0 40 40" aria-hidden="true"><path d="M20 3 L34 30 L20 24 L6 30 Z"/></svg>
+    </div>
+
     <div id="prompt" class="prompt" hidden></div>
 
     <div class="bottom-center">
@@ -42,11 +47,11 @@
     <div class="skills">
       <div id="skillDash" class="skill">
         <div class="ring"><span class="ico ico-dash"></span></div>
-        <div class="skill-txt"><b>Lướt</b> <kbd>Shift</kbd><div class="small" id="dashState">Sẵn sàng</div></div>
+        <div class="skill-txt"><b>Lướt</b> <kbd id="kbdDash">Shift</kbd><div class="small" id="dashState">Sẵn sàng</div></div>
       </div>
       <div id="skillPulse" class="skill">
         <div class="ring"><span class="ico ico-pulse"></span></div>
-        <div class="skill-txt"><b>Tỏa Sáng</b> <kbd>F</kbd><div class="small" id="pulseState">Sẵn sàng</div></div>
+        <div class="skill-txt"><b>Tỏa Sáng</b> <kbd id="kbdPulse">F</kbd><div class="small" id="pulseState">Sẵn sàng</div></div>
       </div>
       <div id="skillCharm" class="skill charm" hidden>
         <div class="ring"><span class="ico ico-charm"></span></div>
@@ -54,10 +59,7 @@
       </div>
     </div>
 
-    <div class="help panel">
-      <kbd>WASD</kbd> đi · <kbd>Space</kbd> nhảy · <kbd>Shift</kbd> lướt · <kbd>E</kbd> thắp / châm dầu · <kbd>F</kbd> tỏa sáng<br />
-      Kéo chuột / <kbd>Q</kbd> <kbd>C</kbd> xoay camera · <kbd>Esc</kbd> tạm dừng · <kbd>R</kbd> chơi lại Đêm
-    </div>
+    <div class="help panel" id="helpBox"></div>
   </div>
 
   <div id="fps" class="fps" hidden></div>
