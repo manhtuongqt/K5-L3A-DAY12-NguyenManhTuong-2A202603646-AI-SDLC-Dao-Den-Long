@@ -1,5 +1,16 @@
 # Changelog
 
+## [v1.0.0 / phase-4] Contract v1.3 "Bình minh: phát hành"
+### Breaking changes
+- `contract_version` "1.2" → "1.3"; `game.contract.json` thêm `bench_cmd`, `soak_cmd`.
+- `build_cmd` thành `npm ci && npm run build`; `run_cmd` thành `node scripts/play.mjs` (server Node phục vụ bản build + API bảng xếp hạng) thay cho `npm run dev`.
+### Added
+- Chế độ benchmark (`node scripts/bench.mjs --seed 42 --duration 30 --out bench.json`): cảnh chuẩn 200 Bóng Mực, 100 đom đóm, camera bay vòng, đo trong Chrome thật qua CDP.
+- Soak test (`node --expose-gc scripts/soak.mjs --seed 7 --nights 10 --out soak.json`).
+- Bảng xếp hạng cục bộ (lưu `data/leaderboard.json`), màn hình từ menu chính, `--export-leaderboard`.
+- Accessibility: đổi phím (báo trùng, khôi phục mặc định), phụ đề/chỉ báo, giảm chuyển động, chữ ≥ 18 px và chữ lớn ×1.25.
+- GitHub Release v1.0.0 kèm bản web build chạy bằng Node.
+
 ## [phase-3] Contract v1.2 "Đèn cạn dầu"
 ### Breaking changes
 - `contract_version` "1.1" → "1.2". Thời lượng Đêm 300/330/360 s → **240/270/300 s**.

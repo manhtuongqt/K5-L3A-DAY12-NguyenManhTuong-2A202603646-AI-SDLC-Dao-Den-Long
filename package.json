@@ -16,7 +16,7 @@
     "test": "node --test tests/*.test.js",
     "start": "node scripts/play.mjs",
     "bench": "node scripts/bench.mjs --seed 42 --duration 30 --out bench.json",
-    "soak": "node --expose-gc scripts/soak.mjs --seed 7 --nights 10 --out soak.json"
+    "soak": "node --expose-gc --no-opt --no-maglev scripts/soak.mjs --seed 7 --nights 10 --out soak.json"
   },
   "dependencies": {
     "three": "^0.170.0"

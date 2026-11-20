@@ -26,7 +26,8 @@ const play = (scenario, ticks = 1, inputs) => runOk({ ticks, snapshotEvery: 1, s
 
 // §7: schema/scenario, số thực một chữ số, và tương thích mặc định.
 test('[P3-7] contract v1.2 có đủ tuning nhiên liệu, ngưỡng thắng, sức chứa và điểm', () => {
-  assert.equal(CONTRACT.contract_version, '1.2');
+  // Phase 4: contract lên v1.3 nhưng v1.3 giữ mọi yêu cầu v1.0–v1.2 (Ticket-04 mục 6) → chấp nhận phiên bản ≥ 1.2.
+  assert.ok(Number(CONTRACT.contract_version) >= 1.2, `contract_version ${CONTRACT.contract_version} < 1.2`);
   for (const key of ['fuel_max', 'fuel_decay_per_s', 'fuel_per_mote', 'relight_cost', 'win_ratio',
     'drain_per_s', 'low_fuel_threshold', 'capacity_max', 'night1_duration_s', 'night2_duration_s', 'night3_duration_s']) {
     assert.ok(Number.isFinite(T[key]) && T[key] > 0, `tuning.${key}`);

@@ -26,7 +26,8 @@ const lastGameOver = (res) => eventsNamed(res, 'game_over').at(-1);
 
 test('[P2-1] game.contract.json v1.2 giữ số chuẩn Phase 2 chưa bị Ticket-03 thay thế', () => {
   const c = JSON.parse(fs.readFileSync(path.join(ROOT, 'game.contract.json'), 'utf8'));
-  assert.equal(c.contract_version, '1.2');
+  // Phase 4: contract lên v1.3 nhưng v1.3 giữ mọi yêu cầu v1.0–v1.2 (Ticket-04 mục 6) → chấp nhận phiên bản ≥ 1.2.
+  assert.ok(Number(c.contract_version) >= 1.2, `contract_version ${c.contract_version} < 1.2`);
   const t = c.tuning;
   const expected = {
     player_speed: 6, carry_capacity: 10, lantern_cost: 10, lantern_count_night1: 5, pickup_radius: 1,

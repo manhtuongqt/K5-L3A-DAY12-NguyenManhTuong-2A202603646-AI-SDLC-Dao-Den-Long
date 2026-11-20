@@ -5,7 +5,7 @@
   "run_cmd": "node scripts/play.mjs",
   "headless_cmd": "node src/headless.js",
   "bench_cmd": "node scripts/bench.mjs",
-  "soak_cmd": "node --expose-gc scripts/soak.mjs",
+  "soak_cmd": "node --expose-gc --no-opt --no-maglev scripts/soak.mjs",
   "tuning": {
     "player_speed": 6,
     "carry_capacity": 10,
