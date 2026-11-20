@@ -85,7 +85,10 @@ async function main() {
     profile = await mkdtemp(path.join(os.tmpdir(), 'ddl-bench-'));
     child = spawn(chrome, [
       `--user-data-dir=${profile}`, '--remote-debugging-port=0', '--remote-debugging-address=127.0.0.1',
-      '--window-size=1280,720', '--disable-gpu-vsync', '--disable-frame-rate-limit',
+      '--window-size=1280,720', ...(process.env.BENCH_FLAGS ? process.env.BENCH_FLAGS.split(' ') : ['--disable-gpu-vsync', '--disable-frame-rate-limit']),
+      // Không để Chrome giảm tốc khi cửa sổ bị che/mất focus (gây khung khựng giả).
+      '--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding',
+      '--disable-background-timer-throttling',
       '--no-first-run', '--no-default-browser-check', '--disable-background-networking',
       'about:blank',
     ], { stdio: ['ignore', 'ignore', 'pipe'] });
@@ -135,7 +138,7 @@ async function main() {
         throw new Error('No first benchmark frame within 15 s; check WebGL and browser console.');
       }
       const now = Date.now();
-      if (state?.firstFrameAt && now >= state.firstFrameAt + 3000 && now - lastSample >= 500) {
+      if (!process.env.BENCH_NO_RSS && state?.firstFrameAt && now >= state.firstFrameAt + 3000 && now - lastSample >= 500) {
         peak = Math.max(peak, await chromeRss(child.pid, profile));
         lastSample = now;
       }
@@ -143,8 +146,10 @@ async function main() {
       await delay(100);
     }
     const raw = await cdp.send('Runtime.evaluate', { expression: 'window.__bench.dts', returnByValue: true });
+    // BENCH_DUMP=<file>: ghi thêm toàn bộ dt (ms) để phân tích khung hình chậm.
+    if (process.env.BENCH_DUMP) await writeFile(process.env.BENCH_DUMP, JSON.stringify(raw.result?.value ?? []));
     const metrics = calculateMetrics(raw.result?.value);
-    if (!peak) throw new Error('Could not measure Chrome RSS with ps');
+    if (!peak && !process.env.BENCH_NO_RSS) throw new Error('Could not measure Chrome RSS with ps');
     const output = {
       contract_version: '1.3', ...metrics, load_ms: state.firstFrameAt - t0,
       peak_mem_mb: Math.round(peak * 10) / 10, vsync_off: true, renderer: state.renderer,

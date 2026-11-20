@@ -99,5 +99,7 @@ try {
     } catch (err) { fail(err); }
   }
   window.addEventListener('resize', () => stage.resize());
+  // Biên dịch sẵn mọi shader trong cảnh trước khung đầu, tránh khựng biên dịch giữa lúc đo.
+  stage.renderer.compile(stage.scene, stage.camera);
   requestAnimationFrame(frame);
 } catch (err) { fail(err); }
