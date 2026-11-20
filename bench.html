@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Đảo Đèn Lồng · Benchmark</title>
+  <style>
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #090713; }
+    canvas { display: block; width: 100%; height: 100%; }
+    #error { position: absolute; inset: 24px; color: #fff; font: 20px sans-serif; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <canvas id="view"></canvas>
+  <div id="error" role="alert" hidden></div>
+  <script>window.__bench = { firstFrameAt: null, done: false, dts: [], renderer: '' };
+    window.addEventListener('error', function (e) { window.__bench.error = e.message; });
+    window.addEventListener('unhandledrejection', function (e) { window.__bench.error = String(e.reason); });</script>
+  <script type="module" src="/src/client/bench.js"></script>
+</body>
+</html>
