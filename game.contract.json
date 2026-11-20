@@ -38,11 +38,14 @@
     "low_fuel_threshold": 30,
     "capacity_max": 20,
     "score": {
-      "per_mote": 10,
+      "per_mote": 5,
       "per_lantern": 100,
+      "per_relight": 40,
       "per_stun": 5,
-      "per_second_left": 2,
-      "per_flame_left": 50
+      "per_stun_drain": 15,
+      "per_second_left": 0,
+      "per_flame_left": 50,
+      "per_lit_lantern_dawn": 50
     }
   }
 }
