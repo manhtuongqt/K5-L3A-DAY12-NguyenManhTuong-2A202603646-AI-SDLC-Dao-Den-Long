@@ -23,6 +23,16 @@ Số token worker lấy từ báo cáo của công cụ (Codex in `tokens used`;
 | 3 | Codex gpt-6.1-sol | Client v1.2 (làm tiếp từ diff) | 82 693 | Thanh dầu, mù màu, HUD |
 | 3 | Claude Opus (lead) | Ticket, ADR, changelog, contract, kiểm tay, bằng chứng | ~70 000 (ước tính) | |
 
+| 4 | Codex gpt-6.1-sol | Sim bench mode + soak | 69 344 | Output headless giữ nguyên từng byte |
+| 4 | Codex gpt-6.1-sol | Server, bảng xếp hạng, bench runner, trang bench | 68 367 | |
+| 4 | Claude Sonnet (medium) | Client: bảng xếp hạng, đổi phím, phụ đề, giảm chuyển động, cỡ chữ | 76 876 | Effort medium theo yêu cầu người dùng |
+| 4 | Codex gpt-6.1-sol | Instancing 200 Bóng Mực (3000 → 7 draw call) | không ghi được | Log không in số token |
+| 4 | Claude Opus (lead) | Ticket, đặc tả, ADR 0002, điều tra soak/bench, README, retro, release | ~120 000 (ước tính) | Điều tra khựng bench tốn nhiều nhất |
+
+**Tổng ước tính cả dự án:** Codex ~650k (đếm được) + 2 phiên fast không có số; Claude Sonnet ~745k; Claude Opus (lead) ~360k. Tổng khoảng **1.8 triệu token**.
+
+**Bài học token sau Phase 4:** dùng Sonnet ở effort medium cho việc giao diện rẻ hơn hẳn (77k so với 154–182k ở Phase 1–2). Điều tra hiệu năng trên phần cứng yếu nên đặt giới hạn sớm (dừng khi nguyên nhân có vẻ nằm ở driver).
+
 **Bài học token sau Phase 3:** chế độ `service_tier="fast"` không đáng: tốn quota nhanh mà phase 30 phút vẫn kịp ở chế độ thường. Khi phải dừng worker giữa chừng, cho phiên mới đọc `git diff` và làm tiếp thay vì làm lại từ đầu.
 
 **Bài học token sau Phase 2:** Sonnet tốn gấp 2–3 lần Codex cho khối việc tương đương. Từ Phase 3: code (kể cả client) giao Codex; test độc lập giao một phiên Codex riêng không được đọc `src/`; Sonnet chỉ dùng khi thật cần.
@@ -41,6 +51,11 @@ Cách tiết kiệm: lead tự đọc 6 file đề (nhỏ) thay vì giao agent; 
 | 3 | Lead (Claude Opus) | `pkill -f` khớp cả chính lệnh shell của lead, làm lệnh dừng worker báo lỗi | Exit code 144 | Dừng theo PID; ghi vào bộ nhớ |
 | 3 | Lead (Claude Opus) | Contract v1.2 lúc đầu còn khối `score` cũ (per_mote 10, thưởng thời gian) | Tự rà lại file sau khi sửa | Sửa ngay trước khi giao worker |
 | 3 | Codex (test) | 1 test kỳ vọng sai số đom đóm sau châm dầu | Test đỏ; tự đối chiếu ticket | Sửa test theo ticket, code giữ nguyên |
+| 4 | Lead (Claude Opus) | Nâng contract lên 1.3 làm 2 test kiểm `=== '1.2'` đỏ | Sonnet báo khi chạy test | Test kiểm `≥ 1.2` kèm lý do (Ticket-04 mục 6) |
+| 4 | Codex (soak) | Soak đo RSS tăng 1.6–1.9× | Lead đọc `soak.json`, đo `heapUsed` ổn định ~4.3 MB | Xác định do JIT V8, ADR 0002 |
+| 4 | Codex (client) | Mỗi Bóng Mực 15 mesh → bench 37 FPS | Lead đếm mesh trong code sau khi bench thấp | Instancing |
+| 4 | Lead / môi trường | Chrome headless sót lại từ lần chụp ảnh giữ cổng debug, làm bench của người dùng không ra file | Kiểm tiến trình khi người dùng báo không thấy kết quả | Tắt tiến trình sót; bench dùng cổng ngẫu nhiên |
+| 4 | Lead (Claude Opus) | Lại dùng `pgrep -f` khớp chính shell (exit 144), dù đã ghi bài học | Exit code 144 | Chỉ kill theo PID đã xác định |
 
 ## Lời nhắc chính
 Lời giao việc cho worker nằm trong lịch sử phiên; mỗi lời giao gồm: file cần đọc, việc cần làm, phạm vi file được sửa, cách tự kiểm tra, mẫu báo cáo.

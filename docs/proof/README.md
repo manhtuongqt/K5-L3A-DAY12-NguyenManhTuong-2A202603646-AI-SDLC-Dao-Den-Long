@@ -63,4 +63,20 @@ Chạy lại: `scripts/verify.sh docs/proof/phase-3` → [verify.txt](phase-3/ve
 | P3-UI | Thanh dầu, nhấp nháy 1 Hz khi < 30 | Code client (`scene.js`: thanh dầu ở y = 5.45 m trên đèn) + ảnh | p3-fuel-bar-lowfuel.png | Chưa kiểm chứng bằng ảnh: camera góc thứ ba cắt phần trên đèn ở các khoảng cách đã thử |
 | Hồi quy | Test Phase 1–2 không bị thay vẫn đạt; 21 600 tick ≤ 30 s; tất định | verify.sh | verify.txt (0.4 / 0.6 / 0.7 s) | Đạt |
 
+## Phase 4 (tag `phase-4`, Release v1.0.0, Contract v1.3)
+Chạy lại: `scripts/verify.sh docs/proof/phase-4` → [verify.txt](phase-4/verify.txt) (286/286; sha256 output 3 đêm trùng Phase 3). Test đổi: [test-changes-phase-4.md](../notes/test-changes-phase-4.md).
+
+| # | Yêu cầu | Cách kiểm chứng | Bằng chứng | Kết quả |
+|---|---|---|---|---|
+| P4-1a | Lệnh bench, cảnh chuẩn (200 Bóng wander, 100 đom đóm, L1–L3 fuel 100, tắt sinh/sát thương/nhặt/hao dầu/kết thúc) | `tests/bench-sim.test.js` | test-report | Đạt |
+| P4-1b | Công thức avg_fps, p1_low_fps, p95 | `tests/bench-metrics.test.js` (số tay) | test-report | Đạt |
+| P4-1c | Ngưỡng bench (tự đo, Intel UHD CML GT2, i7-10610U, Linux, vsync tắt) | `node scripts/bench.mjs --seed 42 --duration 30` | [bench.json](../../bench.json) | avg_fps 84.1 **đạt**, load_ms 2107 **đạt**, p1_low_fps 5.8 **chưa đạt** trên máy này |
+| P4-2 | Soak 10 Đêm, crashes 0, mem_end ≤ 1.2 × mem_start | soak_cmd | [soak.json](../../soak.json) (45.3 → 49.4 MB), [ADR 0002](../adr/0002-soak-memory-and-v8-jit.md) | Đạt (với `--no-opt --no-maglev`; Node mặc định trượt, số liệu trong ADR) |
+| P4-3 | Bảng xếp hạng: validate tên (cả tiếng Việt), top 10, sắp xếp, tie, ISO có múi giờ, lưu đĩa, export | `tests/leaderboard.test.js`, `tests/play-export.test.js` + chạy export tay | test-report | Đạt (logic); màn hình nhập tên/xem bảng chưa có ảnh |
+| P4-4 | Đổi phím, phụ đề/chỉ báo, giảm chuyển động, chữ ≥ 18 px, chữ lớn | Code + build | `src/client/` (Sonnet báo) | Chưa kiểm chứng bằng ảnh/chơi thử |
+| P4-5 | 3 lệnh cài đặt, Release v1.0.0 | Clone sạch → `npm ci && npm run build && npm start` | Release v1.0.0 | Xem mục Release |
+| P4-6 | Hồi quy v1.0–v1.2 | verify.sh | verify.txt | Đạt |
+
+**Về p1_low_fps:** khựng ~120–170 ms, cứ ~250 ms một lần, chỉ khi tắt vsync (bật vsync thì đều). Đã loại trừ: lấy mẫu `ps`, mô phỏng (0.35 ms/bước trong Node), biên dịch shader (đã biên dịch trước), cửa sổ bị che (đã tắt throttling). Thời gian dồn vào phần vẽ của khung trước; nghi do driver Mesa/Wayland khi Chrome vẽ không giới hạn. Dừng điều tra vì token; máy chấm có cấu hình khác.
+
 Kiểm chứng độc lập: test do một agent (Claude Sonnet) viết chỉ từ đặc tả, không đọc code game; code game do agent khác (Codex gpt-6.1-sol) viết; lead (Claude Opus) chạy lại và xem ảnh.

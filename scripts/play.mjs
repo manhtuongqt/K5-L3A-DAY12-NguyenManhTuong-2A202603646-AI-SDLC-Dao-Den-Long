@@ -15,10 +15,12 @@ async function main() {
   const server = await startServer({ port });
   const url = `http://localhost:${server.address().port}`;
   console.log(`Đảo Đèn Lồng: ${url}`);
-  const opener = process.platform === 'darwin' ? 'open' : 'xdg-open';
-  const child = spawn(opener, [url], { detached: true, stdio: 'ignore' });
-  child.on('error', () => {});
-  child.unref();
+  if (!process.env.NO_OPEN) { // NO_OPEN=1: chỉ chạy server, không tự mở trình duyệt
+    const opener = process.platform === 'darwin' ? 'open' : 'xdg-open';
+    const child = spawn(opener, [url], { detached: true, stdio: 'ignore' });
+    child.on('error', () => {});
+    child.unref();
+  }
   const close = () => { server.close(); server.closeAllConnections(); };
   process.once('SIGINT', close);
   process.once('SIGTERM', close);
