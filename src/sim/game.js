@@ -101,7 +101,7 @@ function away(pos, origin) {
   return d ? [(pos[0] - origin[0]) / d, (pos[2] - origin[2]) / d] : [1, 0];
 }
 
-export function createGame({ seed, night = 1, tuning, scenario }) {
+export function createGame({ seed, night = 1, tuning, scenario, bench = false }) {
   if (!MAPS[night]) throw new Error('night must be 1, 2 or 3');
   if (scenario !== undefined) validateScenario(scenario, night);
   const setup = scenario ?? {};
@@ -109,9 +109,9 @@ export function createGame({ seed, night = 1, tuning, scenario }) {
   const map = { ...MAPS[night], duration_s: tuning[`night${night}_duration_s`],
     shade_speed: tuning.shade_speed * MAPS[night].shade_speed / MAPS[1].shade_speed };
   const choose = (array) => array[Math.floor(random() * array.length)];
-  const randomMotes = setup.random_motes ?? true;
-  const randomShades = setup.random_shades ?? true;
-  const randomDrifters = map.drifters && (setup.random_drifters ?? true);
+  const randomMotes = !bench && (setup.random_motes ?? true);
+  const randomShades = !bench && (setup.random_shades ?? true);
+  const randomDrifters = !bench && map.drifters && (setup.random_drifters ?? true);
   const windEnabled = map.wind && (setup.wind_enabled ?? true);
   const fuelMax60 = Math.round(tuning.fuel_max * HZ);
   const fuelPerMote60 = Math.round(tuning.fuel_per_mote * HZ);
@@ -169,7 +169,7 @@ export function createGame({ seed, night = 1, tuning, scenario }) {
     }
   }
   function makeShade(id, pos, entry = {}) {
-    const s = entry.state ?? 'wander';
+    const s = bench ? 'wander' : entry.state ?? 'wander';
     return { id, pos: [pos[0], groundY(pos) + 1, pos[2]], state: s,
       timer: entry.state_ticks_left ?? (s === 'spawning' ? RULES.spawnDuration
         : s === 'stunned' ? ticks(tuning.pulse_stun_s) : s === 'recoil' ? RULES.recoilDuration : 0),
@@ -292,9 +292,9 @@ export function createGame({ seed, night = 1, tuning, scenario }) {
     // 2. Simulation time and timers freeze together on paused wall-clock ticks.
     timeLeft = Math.max(0, initialTime - simTick / HZ);
     // One fuel60 unit is 1/60 fuel: per-second tuning is the integer cost per tick.
-    for (const l of lanterns) if (l.lit) l.fuel60 = Math.max(0, l.fuel60 - tuning.fuel_decay_per_s);
+    for (const l of lanterns) if (!bench && l.lit) l.fuel60 = Math.max(0, l.fuel60 - tuning.fuel_decay_per_s);
     const draining = [];
-    for (const s of shades) if (s.state === 'drain' && !s.eviction) {
+    for (const s of shades) if (!bench && s.state === 'drain' && !s.eviction) {
       const l = lanterns.find((lamp) => lamp.id === s.targetLanternId);
       if (l?.lit && distance(s.pos, l.pos) <= RULES.drainReach) {
         l.fuel60 = Math.max(0, l.fuel60 - tuning.drain_per_s);
@@ -388,7 +388,7 @@ export function createGame({ seed, night = 1, tuning, scenario }) {
       if (dashing && --player.dash === 0) player.dashEnded = true;
       if (!dashing) activatePad();
       if (!tuning.fall_enabled && !containsXZ(map, player.pos[0], player.pos[2])) player.pos = old;
-      if (tuning.fall_enabled && player.pos[1] < RULES.fallY) {
+      if (!bench && tuning.fall_enabled && player.pos[1] < RULES.fallY) {
         const lost = player.carried;
         player.flames -= 1; player.carried = 0; player.respawn = RULES.respawn;
         player.vel = [0, 0, 0]; player.grounded = false; player.launch = null; player.dash = 0;
@@ -401,7 +401,7 @@ export function createGame({ seed, night = 1, tuning, scenario }) {
     // 4. Mote/charm pickup (dropped motes cannot interact on their birth tick).
     const inReach = (pos, radius) => distance(player.pos, pos) <= radius + 1e-9
       && Math.abs(player.pos[1] - pos[1]) <= RULES.heightTolerance;
-    if (activePlayer) {
+    if (!bench && activePlayer) {
       motes = motes.filter((m) => {
         if ((m.kind === 'random' || m.born < simTick) && player.carried < capacity() && inReach(m.pos, tuning.pickup_radius)) {
           player.carried += 1; emit('mote_picked', { carried: player.carried }); return false;
@@ -508,7 +508,7 @@ export function createGame({ seed, night = 1, tuning, scenario }) {
         }
       } else {
         const d = distance(s.pos, player.pos);
-        if (s.state === 'wander' && !player.respawn && d <= RULES.detect) s.state = 'chase';
+        if (!bench && s.state === 'wander' && !player.respawn && d <= RULES.detect) s.state = 'chase';
         if (s.state === 'chase' && (d > RULES.abandon || player.respawn)) s.state = 'wander';
         if (s.state === 'chase') moveTowards(s, player.pos, map.shade_speed, true);
         else {
@@ -517,7 +517,7 @@ export function createGame({ seed, night = 1, tuning, scenario }) {
           s.targetLanternId = l?.id ?? null;
           if (l) {
             if (!l.lit || distance(s.pos, l.pos) > RULES.drainReach) moveTowards(s, l.pos, RULES.wanderSpeed, true);
-            if (l.lit && distance(s.pos, l.pos) <= RULES.drainReach) { s.state = 'drain'; s.drainTicks = 0; }
+            if (!bench && l.lit && distance(s.pos, l.pos) <= RULES.drainReach) { s.state = 'drain'; s.drainTicks = 0; }
           } else {
             if (!s.target || distance(s.pos, s.target) <= 1) s.target = [...choose(map.mote_points)];
             moveTowards(s, s.target, RULES.wanderSpeed, true);
@@ -544,7 +544,7 @@ export function createGame({ seed, night = 1, tuning, scenario }) {
     }
 
     // 9. Theft precedes damage; invulnerability blocks only shade hits.
-    if (activePlayer) {
+    if (!bench && activePlayer) {
       for (const d of drifters) if (d.state === 'chase' && distance(d.pos, player.pos) <= RULES.drifterContact) {
         const amount = Math.min(RULES.drifterSteal, player.carried);
         player.carried -= amount; d.stolen = amount; startFlee(d, RULES.drifterFlee);
@@ -579,8 +579,8 @@ export function createGame({ seed, night = 1, tuning, scenario }) {
 
     // 11. Resolve dawn after all updates; no_flames always takes precedence.
     let reason;
-    if (player.flames <= 0) { state = 'lost'; reason = 'no_flames'; }
-    else if (timeLeft <= 1e-9) {
+    if (!bench && player.flames <= 0) { state = 'lost'; reason = 'no_flames'; }
+    else if (!bench && timeLeft <= 1e-9) {
       const lit = lanterns.filter((l) => l.lit);
       if (lit.length >= Math.ceil(tuning.win_ratio * lanterns.length)) {
         state = 'won'; reason = 'dawn_survived';
