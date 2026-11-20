@@ -58,9 +58,9 @@ Chạy lại: `scripts/verify.sh docs/proof/phase-3` → [verify.txt](phase-3/ve
 | P3-3 | Thắng ở bình minh ≥ ceil(0.6 × đèn), không thắng sớm, no_flames trước | [P3-3] 3 đêm + kiểm tay | test-report.tap, [hand-check-dawn.txt](phase-3/hand-check-dawn.txt) | Đạt |
 | P3-4 | Sức chứa 10 + 2 × successful_lights, tối đa 20 | [P3-4] + HUD | test-report.tap, [p3-colorblind.png](phase-3/p3-colorblind.png) (6/10) | Đạt |
 | P3-5 | Điểm mới (+5, +100, +40, +5/+15, bình minh 50 + floor(fuel), 50/lửa) | [P3-5] + kiểm tay ra 470 | test-report.tap, hand-check-dawn.txt | Đạt |
-| P3-6 | Chế độ mù màu: Bóng #00B3FF, cảnh báo trắng + ⚠, đèn tắt xẹp + rách | Ảnh cùng tình huống (còn 27 s) khi tắt/bật cài đặt | [p3-colorblind.png](phase-3/p3-colorblind.png) (Bóng xanh), [p3-fuel-bar-lowfuel.png](phase-3/p3-fuel-bar-lowfuel.png) (thường: đồng hồ đỏ) vs [p3-colorblind-warning.png](phase-3/p3-colorblind-warning.png) (mù màu: trắng + ⚠) | Đạt cho Bóng và cảnh báo. Đèn tắt xẹp/rách: có trong code (`src/client/scene.js`, vết rách 4 mặt), chưa có ảnh cận |
+| P3-6 | Chế độ mù màu: Bóng #00B3FF, cảnh báo trắng + ⚠, đèn tắt xẹp + rách | Ảnh cùng tình huống (còn 27 s) khi tắt/bật cài đặt | [p3-colorblind.png](phase-3/p3-colorblind.png) (Bóng xanh), [p3-fuel-bar-lowfuel.png](phase-3/p3-fuel-bar-lowfuel.png) (thường: đồng hồ đỏ) vs [p3-colorblind-warning.png](phase-3/p3-colorblind-warning.png) (mù màu: trắng + ⚠) | Đạt (Bóng và cảnh báo có ảnh; đèn tắt xẹp/rách: người dùng chơi thử xác nhận 2026-11-20, không có ảnh) |
 | P3-7 | Contract v1.2: tuning, snapshot, scenario, sự kiện mới | [P3-7] | test-report.tap | Đạt |
-| P3-UI | Thanh dầu, nhấp nháy 1 Hz khi < 30 | Code client (`scene.js`: thanh dầu ở y = 5.45 m trên đèn) + ảnh | p3-fuel-bar-lowfuel.png | Chưa kiểm chứng bằng ảnh: camera góc thứ ba cắt phần trên đèn ở các khoảng cách đã thử |
+| P3-UI | Thanh dầu, nhấp nháy 1 Hz khi < 30 | Code client (`scene.js`: thanh dầu ở y = 5.45 m trên đèn) + ảnh | p3-fuel-bar-lowfuel.png | Đạt (người dùng chơi thử xác nhận 2026-11-20, không có ảnh; ảnh tự động không chụp được vì camera cắt phần trên đèn) |
 | Hồi quy | Test Phase 1–2 không bị thay vẫn đạt; 21 600 tick ≤ 30 s; tất định | verify.sh | verify.txt (0.4 / 0.6 / 0.7 s) | Đạt |
 
 ## Phase 4 (tag `phase-4`, Release v1.0.0, Contract v1.3)
@@ -72,8 +72,8 @@ Chạy lại: `scripts/verify.sh docs/proof/phase-4` → [verify.txt](phase-4/ve
 | P4-1b | Công thức avg_fps, p1_low_fps, p95 | `tests/bench-metrics.test.js` (số tay) | test-report | Đạt |
 | P4-1c | Ngưỡng bench (tự đo, Intel UHD CML GT2, i7-10610U, Linux, vsync tắt) | `node scripts/bench.mjs --seed 42 --duration 30` | [bench.json](../../bench.json) | avg_fps 84.1 **đạt**, load_ms 2107 **đạt**, p1_low_fps 5.8 **chưa đạt** trên máy này |
 | P4-2 | Soak 10 Đêm, crashes 0, mem_end ≤ 1.2 × mem_start | soak_cmd | [soak.json](../../soak.json) (45.3 → 49.4 MB), [ADR 0002](../adr/0002-soak-memory-and-v8-jit.md) | Đạt (với `--no-opt --no-maglev`; Node mặc định trượt, số liệu trong ADR) |
-| P4-3 | Bảng xếp hạng: validate tên (cả tiếng Việt), top 10, sắp xếp, tie, ISO có múi giờ, lưu đĩa, export | `tests/leaderboard.test.js`, `tests/play-export.test.js` + chạy export tay | test-report | Đạt (logic); màn hình nhập tên/xem bảng chưa có ảnh |
-| P4-4 | Đổi phím, phụ đề/chỉ báo, giảm chuyển động, chữ ≥ 18 px, chữ lớn | Code + build | `src/client/` (Sonnet báo) | Chưa kiểm chứng bằng ảnh/chơi thử |
+| P4-3 | Bảng xếp hạng: validate tên (cả tiếng Việt), top 10, sắp xếp, tie, ISO có múi giờ, lưu đĩa, export | `tests/leaderboard.test.js`, `tests/play-export.test.js` + chạy export tay | test-report | Đạt (logic có test; màn hình nhập tên/xem bảng: người dùng chơi thử xác nhận 2026-11-20, không có ảnh) |
+| P4-4 | Đổi phím, phụ đề/chỉ báo, giảm chuyển động, chữ ≥ 18 px, chữ lớn | Code + build | `src/client/` | Đạt (người dùng chơi thử xác nhận 2026-11-20, không có ảnh) |
 | P4-5 | 3 lệnh cài đặt, Release v1.0.0 | Clone sạch → `npm ci && npm run build && npm start` | Release v1.0.0 | Xem mục Release |
 | P4-6 | Hồi quy v1.0–v1.2 | verify.sh | verify.txt | Đạt |
 

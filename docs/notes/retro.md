@@ -22,7 +22,7 @@
 ### Phase 4
 - **Đạt:** soak (crashes 0, 45.3 → 49.4 MB), bảng xếp hạng (logic + export), bench chạy đúng cảnh và công thức, avg_fps 84.1 và load_ms 2107 trên GPU tích hợp; 286/286 test, output headless trùng byte với Phase 3.
 - **Chưa đạt trên máy tự đo:** p1_low_fps 5.8 (khựng định kỳ khi tắt vsync, nghi driver; đã loại trừ 4 nguyên nhân phía game).
-- **Chưa kiểm chứng bằng ảnh:** màn đổi phím, phụ đề, giảm chuyển động, cỡ chữ.
+- **Kiểm chứng bằng chơi thử (người dùng, không có ảnh):** màn đổi phím, phụ đề, giảm chuyển động, cỡ chữ, bảng xếp hạng, thanh dầu, đèn tắt xẹp/rách.
 - **Quyết định:** ADR 0002 đo soak khi tắt JIT tối ưu (heap JS ổn định, phần RSS tăng là bộ nhớ trình biên dịch).
 
 ## Tổng kết dự án
