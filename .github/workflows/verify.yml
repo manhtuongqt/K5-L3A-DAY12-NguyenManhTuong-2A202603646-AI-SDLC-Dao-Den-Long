@@ -1,0 +1,25 @@
+name: verify
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Unit + headless contract tests
+        run: npm test
+      - name: Determinism (same seed twice must be byte-identical)
+        run: |
+          node src/headless.js --seed 42 --night 1 --ticks 3000 --out /tmp/a.jsonl
+          node src/headless.js --seed 42 --night 1 --ticks 3000 --out /tmp/b.jsonl
+          cmp /tmp/a.jsonl /tmp/b.jsonl
+      - name: Web build
+        run: npm run build
