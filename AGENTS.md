@@ -13,6 +13,13 @@ Game 3D góc nhìn thứ ba, làm qua 4 phase (lab Day 12 AI SDLC). Đề từng
 - Headless: `node src/headless.js --seed 1 --night 1 --ticks 600 --out out.jsonl [--scenario f] [--inputs f]`
 - Chạy game: `npm run dev` (http://localhost:5173, `?seed=N&autostart=1`)
 - Build web: `npm run build`
+- Kiểm chứng đầy đủ + lưu bằng chứng: `scripts/verify.sh docs/proof/phase-N` (skill `verify-proof`)
+
+## Phạm vi hiện tại: Phase 2 (Contract v1.1)
+- 3 Đêm (`--night 1|2|3`), số chuẩn của ticket thay mọi số tự chọn. Nguồn chính: `docs/notes/phase-2-ticket.md`; chỗ lead chốt: `docs/notes/phase-2-design.md`.
+- Thứ tự 12 bước mỗi tick của ticket là bắt buộc. Bản đồ trong `src/sim/maps.js` dùng chung cho sim và client.
+- Sáng tạo thêm chỉ ở client; không đổi output headless.
+- Test bị luật mới thay thế: sửa hoặc xóa kèm lý do trong `docs/notes/test-changes-phase-2.md`.
 
 ## Cấu trúc
 - `src/sim/`: logic thuần, không DOM, không Math.random/Date. Tuning chỉ đọc từ `game.contract.json`.
