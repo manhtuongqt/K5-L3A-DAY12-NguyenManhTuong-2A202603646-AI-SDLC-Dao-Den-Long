@@ -14,6 +14,7 @@ Game 3D góc nhìn thứ ba, làm qua 4 phase (lab Day 12 AI SDLC). Đề từng
 - Chạy game: `npm run dev` (http://localhost:5173, `?seed=N&autostart=1`)
 - Build web: `npm run build`
 - Kiểm chứng đầy đủ + lưu bằng chứng: `scripts/verify.sh docs/proof/phase-N` (skill `verify-proof`)
+- Hook Stop (`.claude/hooks/stop-verify.sh`): có thay đổi chưa commit ở `src/`/`tests/` mà `npm test` đỏ thì không được kết thúc.
 
 ## Phạm vi hiện tại: Phase 2 (Contract v1.1)
 - 3 Đêm (`--night 1|2|3`), số chuẩn của ticket thay mọi số tự chọn. Nguồn chính: `docs/notes/phase-2-ticket.md`; chỗ lead chốt: `docs/notes/phase-2-design.md`.

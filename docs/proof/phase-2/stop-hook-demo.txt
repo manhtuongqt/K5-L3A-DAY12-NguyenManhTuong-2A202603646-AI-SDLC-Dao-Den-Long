@@ -1,0 +1,6 @@
+# Stop hook (.claude/hooks/stop-verify.sh) - kiểm thử 2026-11-20
+1) Cây làm việc sạch (không đổi src/, tests/)          -> exit 0, cho kết thúc
+2) Thêm tạm tests/zz-hook-demo.test.js luôn fail        -> chặn:
+   {"decision":"block","reason":"npm test đang đỏ, chưa được kết thúc. Test fail: not ok 211 - hook demo fail; Sửa code (hoặc sửa test kèm lý do) rồi chạy lại npm test."}
+3) stop_hook_active = true (đã bị chặn một lần)         -> exit 0, tránh vòng lặp
+File test tạm đã xóa sau khi thử.
