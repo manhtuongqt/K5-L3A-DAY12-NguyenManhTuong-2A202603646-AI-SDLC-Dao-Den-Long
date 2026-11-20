@@ -243,106 +243,250 @@ export function createPlayerView(root, glowTex) {
 const SHADE_COLOR = new THREE.Color(PAL.shade);
 const STUN_COLOR = new THREE.Color(PAL.shadeStun);
 
+// 7 draw call/root cho cả đàn (kể cả quầng, bóng đất, vệt hút dầu).
+// Mỗi slot chứa nhiều instance cùng bộ phận; API từng view vẫn như trước.
+const shadePools = new WeakMap();
+
+function shadeMaterial(mat, emissive = false, billboard = false) {
+  // Màu thân dùng instanceColor; RGB của shadeStyle là ánh phát xạ riêng,
+  // alpha là độ mờ riêng. Không đổi material chung khi một con đổi trạng thái.
+  mat.onBeforeCompile = (shader) => {
+    shader.vertexShader = 'attribute vec4 shadeStyle;\nvarying vec4 vShadeStyle;\n' + shader.vertexShader;
+    shader.vertexShader = shader.vertexShader.replace('#include <color_vertex>',
+      '#include <color_vertex>\n vShadeStyle = shadeStyle;');
+    shader.fragmentShader = 'varying vec4 vShadeStyle;\n' + shader.fragmentShader;
+    shader.fragmentShader = shader.fragmentShader.replace('#include <color_fragment>',
+      '#include <color_fragment>\n diffuseColor.a *= vShadeStyle.a;');
+    if (emissive) {
+      shader.fragmentShader = shader.fragmentShader.replace('#include <emissivemap_fragment>',
+        '#include <emissivemap_fragment>\n totalEmissiveRadiance *= vShadeStyle.rgb;');
+    }
+    if (billboard) {
+      // Quầng/vệt sáng luôn hướng camera, tương tự Sprite/Points cũ.
+      shader.vertexShader = shader.vertexShader.replace('#include <project_vertex>', `
+        vec4 mvPosition = modelViewMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+        vec2 size = vec2(length(instanceMatrix[0].xyz), length(instanceMatrix[1].xyz));
+        size *= vec2(length(modelViewMatrix[0].xyz), length(modelViewMatrix[1].xyz));
+        mvPosition.xy += transformed.xy * size;
+        gl_Position = projectionMatrix * mvPosition;
+      `);
+    }
+  };
+  mat.customProgramCacheKey = () => `shade-${emissive}-${billboard}`;
+  return mat;
+}
+
+function createShadePool(root, glowTex) {
+  const layers = [
+    { name: 'shade-ink', parts: 8, geo: new THREE.SphereGeometry(1, 16, 12),
+      mat: shadeMaterial(new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff,
+        emissiveIntensity: 1, roughness: 0.75, transparent: true }), true) },
+    { name: 'shade-rim', parts: 1, geo: new THREE.SphereGeometry(1, 16, 12),
+      mat: shadeMaterial(new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true,
+        side: THREE.BackSide, depthWrite: false, blending: THREE.AdditiveBlending })) },
+    { name: 'shade-eyes', parts: 2, geo: new THREE.SphereGeometry(1, 10, 8),
+      mat: shadeMaterial(new THREE.MeshBasicMaterial({ color: 0xffffff })) },
+    { name: 'shade-pupils', parts: 2, geo: new THREE.SphereGeometry(1, 8, 6),
+      mat: shadeMaterial(new THREE.MeshBasicMaterial({ color: PAL.shade })) },
+    { name: 'shade-aura', parts: 1, geo: new THREE.PlaneGeometry(1, 1),
+      mat: shadeMaterial(new THREE.MeshBasicMaterial({ color: 0xffffff, map: glowTex,
+        transparent: true, depthWrite: false, side: THREE.DoubleSide, forceSinglePass: true }), false, true) },
+    { name: 'shade-shadow', parts: 1, geo: new THREE.CircleGeometry(1, 20),
+      mat: shadeMaterial(new THREE.MeshBasicMaterial({ color: 0x05020c,
+        transparent: true, depthWrite: false })) },
+    { name: 'shade-drain', parts: 8, geo: new THREE.PlaneGeometry(1, 1),
+      mat: shadeMaterial(new THREE.MeshBasicMaterial({ color: PAL.lampCore, map: glowTex,
+        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+        side: THREE.DoubleSide, forceSinglePass: true }), false, true) },
+  ];
+  const entries = [];
+  const local = new THREE.Object3D();
+  const matrix = new THREE.Matrix4();
+  const parent = new THREE.Matrix4();
+  const identity = new THREE.Matrix4();
+  const color = new THREE.Color();
+  const rimColor = new THREE.Color();
+  const emission = new THREE.Color();
+  const white = new THREE.Color(0xffffff);
+  let capacity = 0;
+
+  function resize(n) {
+    for (const layer of layers) {
+      const old = layer.mesh;
+      const style = new THREE.InstancedBufferAttribute(new Float32Array(n * layer.parts * 4), 4);
+      style.setUsage(THREE.DynamicDrawUsage);
+      if (old) {
+        style.array.set(layer.geo.getAttribute('shadeStyle').array);
+        layer.geo.dispose(); // giải phóng buffer cũ trước khi thay attribute khi pool lớn thêm
+      }
+      layer.geo.setAttribute('shadeStyle', style);
+      const mesh = new THREE.InstancedMesh(layer.geo, layer.mat, n * layer.parts);
+      mesh.name = layer.name;
+      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      mesh.setColorAt(0, white);
+      mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
+      mesh.count = entries.length * layer.parts;
+      // Cả đàn trải khắp đảo; bound tự động của frame đầu sẽ lỗi thời khi di chuyển.
+      mesh.frustumCulled = false;
+      if (old) {
+        mesh.instanceMatrix.array.set(old.instanceMatrix.array);
+        mesh.instanceColor.array.set(old.instanceColor.array);
+        root.remove(old);
+        old.dispose();
+      }
+      layer.mesh = mesh;
+      root.add(mesh);
+    }
+    capacity = n;
+  }
+
+  function put(layerIndex, slot, part, transform, x, y, z, sx, sy, sz, rx = 0) {
+    local.position.set(x, y, z);
+    local.scale.set(sx, sy, sz);
+    local.rotation.set(rx, 0, 0);
+    local.updateMatrix();
+    matrix.multiplyMatrices(transform, local.matrix);
+    const layer = layers[layerIndex];
+    layer.mesh.setMatrixAt(slot * layer.parts + part, matrix);
+  }
+
+  function paint(layerIndex, slot, tint, opacity = 1, glow = null) {
+    const layer = layers[layerIndex];
+    const style = layer.geo.getAttribute('shadeStyle');
+    for (let part = 0; part < layer.parts; part++) {
+      const index = slot * layer.parts + part;
+      layer.mesh.setColorAt(index, tint);
+      style.setXYZW(index, glow?.r ?? 0, glow?.g ?? 0, glow?.b ?? 0, opacity);
+    }
+  }
+
+  return {
+    add() {
+      if (entries.length === capacity) resize(Math.max(256, capacity * 2));
+      const entry = { slot: entries.length };
+      entries.push(entry);
+      matrix.makeScale(0, 0, 0);
+      for (const layer of layers) {
+        layer.mesh.count = entries.length * layer.parts;
+        for (let part = 0; part < layer.parts; part++) {
+          layer.mesh.setMatrixAt(entry.slot * layer.parts + part, matrix);
+        }
+        layer.mesh.instanceMatrix.needsUpdate = true;
+      }
+      return entry;
+    },
+    remove(entry) {
+      if (entry.slot < 0) return;
+      const slot = entry.slot;
+      const last = entries.pop();
+      if (last !== entry) {
+        entries[slot] = last;
+        for (const layer of layers) {
+          const style = layer.geo.getAttribute('shadeStyle');
+          for (let part = 0; part < layer.parts; part++) {
+            const to = slot * layer.parts + part;
+            const from = last.slot * layer.parts + part;
+            layer.mesh.getMatrixAt(from, matrix);
+            layer.mesh.setMatrixAt(to, matrix);
+            layer.mesh.getColorAt(from, color);
+            layer.mesh.setColorAt(to, color);
+            style.copyAt(to, style, from);
+          }
+          layer.mesh.instanceColor.needsUpdate = true;
+          style.needsUpdate = true;
+        }
+        last.slot = slot;
+      }
+      entry.slot = -1;
+      for (const layer of layers) {
+        layer.mesh.count = entries.length * layer.parts;
+        layer.mesh.instanceMatrix.needsUpdate = true;
+      }
+      if (!entries.length) {
+        for (const layer of layers) {
+          root.remove(layer.mesh);
+          layer.mesh.dispose(); layer.geo.dispose(); layer.mat.dispose();
+        }
+        shadePools.delete(root);
+      }
+    },
+    update(entry, group, inner, pos, groundY, t, seed, phase, spawn, stun, accessible, drainPos) {
+      const slot = entry.slot;
+      if (slot < 0) return;
+      group.updateMatrix();
+      inner.updateMatrix();
+      parent.multiplyMatrices(group.matrix, inner.matrix);
+      put(0, slot, 0, parent, 0, 0, 0, 0.85, 0.85 * 0.92, 0.85);
+      put(1, slot, 0, parent, 0, 0, 0, 0.95, 0.95 * 0.92, 0.95);
+      for (let i = 0; i < 6; i++) {
+        const a = i / 6 * Math.PI * 2;
+        const w = Math.sin(t * 3 + i * 1.3 + phase);
+        const s = 0.36 * (1 + 0.2 * w);
+        put(0, slot, i + 1, parent, Math.sin(a) * (0.62 + 0.08 * w), -0.5 + 0.08 * w,
+          Math.cos(a) * (0.62 + 0.08 * w), s, 0.36 * (1.1 - 0.2 * w), s);
+      }
+      put(0, slot, 7, parent, 0, 0.8, -0.05, 0.4, 0.4, 0.4);
+      for (let i = 0; i < 2; i++) {
+        const x = i === 0 ? -0.3 : 0.3;
+        put(2, slot, i, parent, x, 0.22, 0.74, 0.14, 0.14 * (1 - 0.8 * stun), 0.14);
+        const s = stun < 0.5 ? 0.06 : 0;
+        put(3, slot, i, parent, x, 0.2, 0.86, s, s, s);
+      }
+      put(4, slot, 0, parent, 0, 0, 0, 4.6, 4.6, 4.6);
+      const shadowScale = 1 + 0.05 * Math.sin(t * 4 + seed);
+      put(5, slot, 0, identity, pos[0], groundY + 0.04, pos[2], shadowScale, shadowScale, shadowScale, -Math.PI / 2);
+      for (let i = 0; i < 8; i++) {
+        if (drainPos) {
+          const k = (t * 0.75 + i / 8) % 1;
+          const arc = Math.sin(k * Math.PI);
+          put(6, slot, i, identity,
+            drainPos[0] + (pos[0] - drainPos[0]) * k + Math.sin(t * 3 + i) * 0.12 * arc,
+            drainPos[1] + 3.75 + (pos[1] - drainPos[1] - 3.75) * k + arc * 0.3,
+            drainPos[2] + (pos[2] - drainPos[2]) * k + Math.cos(t * 3 + i) * 0.12 * arc,
+            0.3, 0.3, 0.3);
+        } else {
+          put(6, slot, i, identity, 0, 0, 0, 0, 0, 0);
+        }
+      }
+      color.copy(SHADE_COLOR).lerp(STUN_COLOR, stun);
+      rimColor.setHex(accessible ? PAL.shadeAccessible : PAL.shadeRim);
+      emission.copy(rimColor).multiplyScalar(0.22 * (1 - stun) + 0.05 * stun);
+      paint(0, slot, color, (0.97 - 0.2 * stun) * (0.3 + 0.7 * spawn), emission);
+      paint(1, slot, rimColor, (0.55 - 0.35 * stun) * spawn);
+      paint(2, slot, rimColor);
+      paint(3, slot, white);
+      paint(4, slot, rimColor, (0.3 - 0.2 * stun) * spawn);
+      paint(5, slot, white, (0.4 - 0.2 * stun) * spawn);
+      paint(6, slot, white, drainPos ? 0.45 + 0.15 * Math.sin(t * Math.PI * 2) : 0);
+      for (const layer of layers) {
+        layer.mesh.instanceMatrix.needsUpdate = true;
+        layer.mesh.instanceColor.needsUpdate = true;
+        layer.geo.getAttribute('shadeStyle').needsUpdate = true;
+      }
+    },
+  };
+}
+
 export function createShadeView(root, glowTex, id, initialState) {
+  let pool = shadePools.get(root);
+  if (!pool) { pool = createShadePool(root, glowTex); shadePools.set(root, pool); }
   const group = new THREE.Group();
   const inner = new THREE.Group();
   group.add(inner);
-  const mat = new THREE.MeshStandardMaterial({
-    color: SHADE_COLOR, emissive: PAL.shadeRim, emissiveIntensity: 0.22, roughness: 0.75,
-    transparent: true, opacity: 0.97,
-  });
-  // viền #7A3CFF: vỏ lớn hơn một chút, chỉ thấy mặt trong
-  const rimMat = new THREE.MeshBasicMaterial({
-    color: PAL.shadeRim, transparent: true, opacity: 0.55, side: THREE.BackSide,
-    depthWrite: false, blending: THREE.AdditiveBlending,
-  });
-  const body = new THREE.Mesh(new THREE.SphereGeometry(0.85, 22, 16), mat);
-  body.scale.set(1, 0.92, 1);
-  const rim = new THREE.Mesh(new THREE.SphereGeometry(0.95, 22, 16), rimMat);
-  rim.scale.set(1, 0.92, 1);
-  inner.add(body, rim);
-  const blobs = [];
-  const blobGeo = new THREE.SphereGeometry(0.36, 12, 10);
-  const n = 6;
-  for (let i = 0; i < n; i++) {
-    const m = new THREE.Mesh(blobGeo, mat);
-    inner.add(m);
-    blobs.push({ m, a: (i / n) * Math.PI * 2, ph: i * 1.3 + (id.length ? id.charCodeAt(id.length - 1) : 0) });
-  }
-  const top = new THREE.Mesh(new THREE.SphereGeometry(0.4, 14, 10), mat);
-  top.position.set(0, 0.8, -0.05);
-  inner.add(top);
-
-  const eyeMat = new THREE.MeshBasicMaterial({ color: PAL.shadeRim });
-  const eyeGeo = new THREE.SphereGeometry(0.14, 10, 8);
-  const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
-  const eyeR = new THREE.Mesh(eyeGeo, eyeMat);
-  eyeL.position.set(-0.3, 0.22, 0.74);
-  eyeR.position.set(0.3, 0.22, 0.74);
-  inner.add(eyeL, eyeR);
-  const pupilMat = new THREE.MeshBasicMaterial({ color: PAL.shade });
-  const pupilGeo = new THREE.SphereGeometry(0.06, 8, 6);
-  const pL = new THREE.Mesh(pupilGeo, pupilMat);
-  const pR = new THREE.Mesh(pupilGeo, pupilMat);
-  pL.position.set(-0.3, 0.2, 0.86);
-  pR.position.set(0.3, 0.2, 0.86);
-  inner.add(pL, pR);
-
-  const aura = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: glowTex, color: PAL.shadeRim, transparent: true, opacity: 0.3, depthWrite: false,
-  }));
-  aura.scale.set(4.6, 4.6, 1);
-  inner.add(aura);
-
-  const shadow = blobShadow(1.0, 0.4);
-  const holder = new THREE.Group();
-  holder.add(shadow);
-  root.add(group, holder);
-
-  // Vệt sáng nhỏ bay từ đèn vào Bóng đang hút dầu, không thêm nguồn sáng.
-  const drainGeo = new THREE.BufferGeometry();
-  const drainPositions = new Float32Array(8 * 3);
-  drainGeo.setAttribute('position', new THREE.BufferAttribute(drainPositions, 3).setUsage(THREE.DynamicDrawUsage));
-  const drainMat = new THREE.PointsMaterial({ map: glowTex, color: PAL.lampCore,
-    size: 0.3, transparent: true, opacity: 0.6, depthWrite: false, blending: THREE.AdditiveBlending });
-  const drainStream = new THREE.Points(drainGeo, drainMat);
-  drainStream.frustumCulled = false;
-  drainStream.visible = false;
-  root.add(drainStream);
-
-  const seed = (id.charCodeAt(id.length - 1) || 1) * 1.7;
+  root.add(group);
+  const entry = pool.add();
+  const phase = id.length ? id.charCodeAt(id.length - 1) : 0;
+  const seed = (phase || 1) * 1.7;
   let stun = 0;
   let spawn = initialState === 'spawning' ? 0 : 1;
   let recoil = 0;
 
   return {
     group,
-    dispose() {
-      root.remove(group, holder, drainStream);
-      mat.dispose(); rimMat.dispose(); aura.material.dispose(); eyeMat.dispose();
-      drainGeo.dispose(); drainMat.dispose();
-    },
+    dispose() { root.remove(group); pool.remove(entry); },
     // state: spawning | wander | chase | recoil | stunned | drain
     update(pos, state, groundY, faceAngle, t, dt, distinguishableColors = false, drainPos = null) {
-      const rimColor = distinguishableColors ? PAL.shadeAccessible : PAL.shadeRim;
-      if (rimMat.color.getHex() !== rimColor) {
-        rimMat.color.setHex(rimColor);
-        eyeMat.color.setHex(rimColor);
-        mat.emissive.setHex(rimColor);
-        aura.material.color.setHex(rimColor);
-      }
-      drainStream.visible = state === 'drain' && !!drainPos;
-      if (drainStream.visible) {
-        for (let i = 0; i < drainPositions.length / 3; i++) {
-          const k = (t * 0.75 + i / 8) % 1;
-          const arc = Math.sin(k * Math.PI);
-          drainPositions[i * 3] = drainPos[0] + (pos[0] - drainPos[0]) * k + Math.sin(t * 3 + i) * 0.12 * arc;
-          drainPositions[i * 3 + 1] = drainPos[1] + 3.75 + (pos[1] - drainPos[1] - 3.75) * k + arc * 0.3;
-          drainPositions[i * 3 + 2] = drainPos[2] + (pos[2] - drainPos[2]) * k + Math.cos(t * 3 + i) * 0.12 * arc;
-        }
-        drainGeo.attributes.position.needsUpdate = true;
-        drainMat.opacity = 0.45 + 0.15 * Math.sin(t * Math.PI * 2);
-      }
+      if (entry.slot < 0) return;
       const stunned = state === 'stunned';
       stun += ((stunned ? 1 : 0) - stun) * Math.min(1, dt * 8);
       recoil += ((state === 'recoil' ? 1 : 0) - recoil) * Math.min(1, dt * 10);
@@ -351,28 +495,14 @@ export function createShadeView(root, glowTex, id, initialState) {
       const jx = stun > 0.5 ? Math.sin(t * 60 + seed) * 0.05 : 0;
       const jz = stun > 0.5 ? Math.cos(t * 53 + seed) * 0.05 : 0;
       group.position.set(pos[0] + jx, pos[1], pos[2] + jz);
-      holder.position.set(pos[0], groundY, pos[2]);
       group.rotation.y = faceAngle;
       const wob = 1 + 0.07 * Math.sin(t * 4 + seed) + 0.1 * recoil * Math.sin(t * 30);
       const sc = 0.35 + 0.65 * spawn;
       inner.scale.set(wob * sc, (2 - wob) * sc, wob * sc);
       inner.position.y = Math.sin(t * 2.2 + seed) * 0.1;
-      for (const b of blobs) {
-        const w = Math.sin(t * 3 + b.ph);
-        b.m.position.set(Math.sin(b.a) * (0.62 + 0.08 * w), -0.5 + 0.08 * w, Math.cos(b.a) * (0.62 + 0.08 * w));
-        const s = 1 + 0.2 * w;
-        b.m.scale.set(s, 1.1 - 0.2 * w, s);
-      }
-      mat.color.copy(SHADE_COLOR).lerp(STUN_COLOR, stun); // thân #120A1A, choáng #3A3450
-      mat.emissiveIntensity = 0.22 * (1 - stun) + 0.05 * stun;
-      mat.opacity = (0.97 - 0.2 * stun) * (0.3 + 0.7 * spawn);
-      rimMat.opacity = (0.55 - 0.35 * stun) * spawn;
-      aura.material.opacity = (0.3 - 0.2 * stun) * spawn;
-      eyeL.scale.y = eyeR.scale.y = 1 - 0.8 * stun;
-      pL.visible = pR.visible = stun < 0.5;
       inner.rotation.y = stun * Math.sin(t * 6 + seed) * 0.5;
-      shadow.material.opacity = (0.4 - 0.2 * stun) * spawn;
-      shadow.scale.setScalar(1 + 0.05 * Math.sin(t * 4 + seed));
+      pool.update(entry, group, inner, pos, groundY, t, seed, phase, spawn, stun,
+        distinguishableColors, state === 'drain' ? drainPos : null);
     },
   };
 }
